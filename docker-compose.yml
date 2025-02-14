@@ -1,0 +1,29 @@
+version: "3"
+services:
+  mongo:
+    networks:
+      - no-internet
+    image: mongo
+    ports:
+      - "27017:27017"
+    container_name: mongo
+    restart: always
+    volumes:
+      - ./db/:/data/db
+  tuluvluguu:
+    image: mzevtabs/tuluvluguuback
+    networks:
+      - no-internet
+      - internet
+    container_name: tuluvluguu
+    restart: always
+    depends_on:
+      - "baaz"
+    ports:
+      - 8084:8084
+    volumes:
+      - ./file/:/app/tuluvluguu/file
+networks:
+  internet: {}
+  no-internet:
+    internal: true
