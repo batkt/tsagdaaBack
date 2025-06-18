@@ -466,7 +466,9 @@ exports.tsegGaraarBurtgeh = asyncHandler(async (req, res, next) => {
       { upsert: true, new: true }
     );
 
-    return res.status(200).json({ message: 'Амжилттай бүртгэгдлээ', tseg });
+    return res
+      .status(200)
+      .json({ message: 'Байршил амжилттай бүртгэгдлээ', isOK: true, tseg });
   } catch (error) {
     next(error);
   }
