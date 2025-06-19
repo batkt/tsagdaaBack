@@ -473,3 +473,52 @@ exports.tsegGaraarBurtgeh = asyncHandler(async (req, res, next) => {
     next(error);
   }
 });
+
+exports.ajiltanGaraarBurtgeh = asyncHandler(async (req, res, next) => {
+  try {
+    const {
+      tasag,
+      kheltes,
+      tsol,
+      ovog,
+      ner,
+      register,
+      albanTushaal,
+      porool,
+      utas,
+      duureg,
+      nevtrekhNer,
+    } = req.body;
+
+    if (!ner || !nevtrekhNer) {
+      return res.status(400).json({
+        message: 'Нэр болон Хувийн дугаар (nevtrekhNer) шаардлагатай!',
+      });
+    }
+
+    const exists = await Ajiltan.findOne({ nevtrekhNer });
+    if (exists) {
+      return res.status(400).json({
+        message: `Хувийн дугаар "${nevtrekhNer}"-тай ажилтан аль хэдийн бүртгэгдсэн байна.`,
+      });
+    }
+
+    const ajiltan = await Ajiltan.create({
+      tasag,
+      kheltes,
+      tsol,
+      ovog,
+      ner,
+      register,
+      albanTushaal,
+      porool,
+      utas,
+      duureg,
+      nevtrekhNer,
+    });
+
+    res.status(200).json({ message: 'Амжилттай бүртгэгдлээ', ajiltan });
+  } catch (error) {
+    next(error);
+  }
+});

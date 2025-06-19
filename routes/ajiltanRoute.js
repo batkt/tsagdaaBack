@@ -6,6 +6,7 @@ const {
   tsegTatya,
   tsegZagvarAvya,
   tsegGaraarBurtgeh,
+  ajiltanGaraarBurtgeh,
 } = require('../controller/ajiltanController');
 const excel = require('exceljs');
 const { crud, UstsanBarimt, tokenShalgakh, khuudaslalt } = require('zevback');
@@ -58,6 +59,7 @@ router.get('/ajiltanIdgaarAvya/:id', async (req, res, next) => {
   }
 });
 router.get('/ajiltanZagvarAvya', ajiltanZagvarAvya);
+router.post('/ajiltanGaraarBurtgeh', ajiltanGaraarBurtgeh);
 router.post('/ajiltanTatya', uploadFile.single('file'), ajiltanTatya);
 
 router.get('/tsegZagvarAvya', tsegZagvarAvya);
