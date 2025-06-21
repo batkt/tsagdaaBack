@@ -1,10 +1,11 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
 mongoose.pluralize(null);
 const tuluvluguuSchema = new Schema(
   {
     ner: String,
+    turul: String,
     ekhlekhOgnoo: Date,
     duusakhOgnoo: Date,
     niislelEeljuud: [
@@ -28,5 +29,5 @@ const tuluvluguuSchema = new Schema(
   }
 );
 
-const TuluvluguuModel = mongoose.model("tuluvluguu", tuluvluguuSchema);
+const TuluvluguuModel = mongoose.model('tuluvluguu', tuluvluguuSchema);
 module.exports = TuluvluguuModel;
