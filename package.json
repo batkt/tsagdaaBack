@@ -11,7 +11,9 @@
   "license": "ISC",
   "dependencies": {
     "bcrypt": "^5.1.0",
+    "date-fns": "^4.1.0",
     "http": "0.0.1-security",
+    "multer": "^2.0.1",
     "zevback": "^1.1.25",
     "zuragpack": "^1.0.17"
   }
