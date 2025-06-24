@@ -1,20 +1,20 @@
-const express = require("express");
+const express = require('express');
 const app = express();
-const mongoose = require("mongoose");
-const http = require("http");
-const cors = require("cors");
+const mongoose = require('mongoose');
+const http = require('http');
+const cors = require('cors');
 const server = http.Server(app);
-const io = require("socket.io")(server);
-const dotenv = require("dotenv");
-dotenv.config({ path: "./tokhirgoo/tokhirgoo.env" });
+const io = require('socket.io')(server);
+const dotenv = require('dotenv');
+dotenv.config({ path: './tokhirgoo/tokhirgoo.env' });
+const Redis = require('ioredis');
+const { zuragPack } = require('zuragpack');
+const tsegRoute = require('./routes/tsegRoute');
+const irtsRoute = require('./routes/irtsRoute');
+const ajiltanRoute = require('./routes/ajiltanRoute');
+const aldaaBarigch = require('./middleware/aldaaBarigch');
 
-const { zuragPack } = require("zuragpack");
-const tsegRoute = require("./routes/tsegRoute");
-const irtsRoute = require("./routes/irtsRoute");
-const ajiltanRoute = require("./routes/ajiltanRoute");
-const aldaaBarigch = require("./middleware/aldaaBarigch");
-
-const dbUrl = "mongodb://localhost:27017/tsagdaa"; // mongo
+const dbUrl = 'mongodb://localhost:27017/tsagdaa'; // mongo
 
 mongoose
   .connect(dbUrl, {
@@ -22,18 +22,20 @@ mongoose
     useUnifiedTopology: true,
   })
   .then((result) => {
-    console.log("xolbogdson");
+    console.log('xolbogdson');
     server.listen(8084);
   })
   .catch((err) => console.log(err));
 
-process.env.TZ = "Asia/Ulaanbaatar";
+process.env.TZ = 'Asia/Ulaanbaatar';
 
-app.set("socketio", io);
+const redis = new Redis();
+
+app.set('socketio', io);
 app.use(cors());
 app.use(
   express.json({
-    limit: "50mb",
+    limit: '50mb',
   })
 );
 app.use(tsegRoute);
@@ -42,9 +44,25 @@ app.use(irtsRoute);
 zuragPack(app);
 
 app.use(aldaaBarigch);
-io.on("connection", (socket) => {
-  socket.on("chat message", (msg) => {
-    io.emit("chat message", msg);
+
+async function broadcastActiveUserCount() {
+  const count = await redis.scard('online-users');
+  io.emit('active-users', count);
+}
+
+io.on('connection', async (socket) => {
+  const userId = socket.handshake.query.userId;
+
+  if (!userId) return;
+
+  await redis.sadd('online-users', userId);
+  await broadcastActiveUserCount();
+
+  socket.on('chat message', (msg) => {
+    io.emit('chat message', msg);
   });
-  socket.on("disconnect", () => {});
+  socket.on('disconnect', async () => {
+    await redis.srem('online-users', userId);
+    await broadcastActiveUserCount();
+  });
 });
