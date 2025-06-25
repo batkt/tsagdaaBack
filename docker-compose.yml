@@ -1,15 +1,24 @@
-version: "3"
+version: '3'
 services:
   mongo:
     networks:
       - no-internet
     image: mongo
     ports:
-      - "27017:27017"
+      - '27017:27017'
     container_name: mongo
     restart: always
     volumes:
       - ./db/:/data/db
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    networks:
+      - no-internet
+      - internet
+    restart: always
+
   tuluvluguu:
     image: mzevtabs/tuluvluguuback
     networks:
@@ -17,8 +26,10 @@ services:
       - internet
     container_name: tuluvluguu
     restart: always
+    environment:
+      REDIS_URL: redis://redis:6379
     depends_on:
-      - "baaz"
+      - 'baaz'
     ports:
       - 8084:8084
     volumes:

@@ -29,7 +29,7 @@ mongoose
 
 process.env.TZ = 'Asia/Ulaanbaatar';
 
-const redis = new Redis();
+const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 
 app.set('socketio', io);
 app.use(cors());
