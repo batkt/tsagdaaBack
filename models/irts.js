@@ -1,5 +1,5 @@
-const mongoose = require("mongoose");
-const jwt = require("jsonwebtoken");
+const mongoose = require('mongoose');
+const jwt = require('jsonwebtoken');
 const Schema = mongoose.Schema;
 
 mongoose.pluralize(null);
@@ -36,6 +36,7 @@ const irtsSchema = new Schema(
       zai: Number,
     },
     tuluv: String,
+    turul: String,
     chuluuniiTurul: {
       ajiltniiId: String,
       ajiltniiNer: String,
@@ -64,4 +65,4 @@ const irtsSchema = new Schema(
     timestamps: true,
   }
 );
-module.exports = mongoose.model("irts", irtsSchema);
+module.exports = mongoose.model('irts', irtsSchema);

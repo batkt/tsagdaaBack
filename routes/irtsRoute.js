@@ -734,4 +734,70 @@ router.get('/irtsStats', tokenShalgakh, async (req, res, next) => {
   }
 });
 
+/**
+ * Чөлөө, амралт, өвчтэй бүртгэх
+ */
+router.post('/irtsChuluu', tokenShalgakh, async (req, res) => {
+  try {
+    const {
+      ajiltniiId,
+      ajiltniiNer,
+      turul,
+      tailbar, // Амралт, Өвчтэй гэх мэт
+      ekhlekhOgnoo,
+      duusakhOgnoo,
+      burtgesenAjiltniiId,
+      burtgesenAjiltniiNer,
+    } = req.body;
+
+    if (!ajiltniiId || !ekhlekhOgnoo || !duusakhOgnoo) {
+      return res
+        .status(400)
+        .json({ message: 'Заавал шаардлагатай талбар дутуу байна.' });
+    }
+
+    const startDate = new Date(ekhlekhOgnoo);
+    const endDate = new Date(duusakhOgnoo);
+
+    const days = [];
+    for (
+      let d = new Date(startDate);
+      d <= endDate;
+      d.setDate(d.getDate() + 1)
+    ) {
+      days.push(new Date(d));
+    }
+
+    // Амралттай бүх өдрүүдээр ирц үүсгэх
+    const newIrtsList = days.map((day) => ({
+      ajiltniiId,
+      ajiltniiNer,
+      ognoo: day,
+      tuluv: 'chuluu',
+      turul,
+      chuluuniiTurul: {
+        ajiltniiId,
+        ajiltniiNer,
+        tailbar,
+        ekhlekhOgnoo: startDate,
+        duusakhOgnoo: endDate,
+        burtgesenTsag: new Date(),
+      },
+      burtgesenOgnoo: new Date(),
+      burtgesenAjiltniiId,
+      burtgesenAjiltniiNer,
+    }));
+
+    await Irts.insertMany(newIrtsList);
+    return res.status(201).json({
+      isOk: true,
+      message: 'Амжилттай бүртгэгдлээ.',
+      days: newIrtsList.length,
+    });
+  } catch (error) {
+    console.error('Ирц бүртгэхэд алдаа:', error);
+    return res.status(500).json({ message: 'Серверийн алдаа.' });
+  }
+});
+
 module.exports = router;
