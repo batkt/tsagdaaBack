@@ -8,6 +8,7 @@ const io = require('socket.io')(server);
 const dotenv = require('dotenv');
 dotenv.config({ path: './tokhirgoo/tokhirgoo.env' });
 const Redis = require('ioredis');
+const cron = require('node-cron');
 const { zuragPack } = require('zuragpack');
 const tsegRoute = require('./routes/tsegRoute');
 const irtsRoute = require('./routes/irtsRoute');
@@ -49,6 +50,11 @@ async function broadcastActiveUserCount() {
   const count = await redis.scard('online-users');
   io.emit('active-users', count);
 }
+
+cron.schedule('0 20 * * *', async () => {
+  console.log('🕓 Ulaanbaatar-ийн 4 цагт ажиллав (UTC дээр 20 цаг)');
+  await redis.del('online-users'); // Бүх онлайн хэрэглэгчдийг цэвэрлэнэ
+});
 
 io.on('connection', async (socket) => {
   const userId = socket.handshake.query.userId;
