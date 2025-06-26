@@ -3,6 +3,7 @@ const router = express.Router();
 const TsagdaagiinGazar = require('../models/tsagdaagiinGazar');
 const Tukhuurumj = require('../models/tukhuurumj');
 const Irts = require('../models/irts');
+const Ajiltan = require('../models/ajiltan');
 const { tokenShalgakh, crud, UstsanBarimt } = require('zevback');
 
 const { startOfDay, endOfDay } = require('date-fns');
@@ -652,75 +653,133 @@ router.get('/irtsStats', tokenShalgakh, async (req, res, next) => {
     const start = startOfDay(today);
     const end = endOfDay(today);
 
-    const [workingToday, onLeave, absentCount, lateCount, groupedByGazriinId] =
-      await Promise.all([
-        // 1. Үүрэг гүйцэтгэж байгаа ажилчид
-        Irts.countDocuments({
-          ognoo: { $gte: start, $lte: end },
-          // yawsanTsag: null,
-          chuluuniiTurul: null,
-          tasalsanTurul: null,
-        }),
+    const [
+      workingToday,
+      onLeave,
+      absentCount,
+      lateCount,
+      groupedByGazriinId,
+      groupedByDuureg,
+    ] = await Promise.all([
+      // 1. Үүрэг гүйцэтгэж байгаа ажилчид
+      Irts.countDocuments({
+        ognoo: { $gte: start, $lte: end },
+        // yawsanTsag: null,
+        chuluuniiTurul: null,
+        tasalsanTurul: null,
+      }),
 
-        // 2. Чөлөөтэй ажилчид
-        Irts.countDocuments({
-          ognoo: { $gte: start, $lte: end },
-          tuluv: 'chuluu',
-        }),
+      // 2. Чөлөөтэй ажилчид
+      Irts.countDocuments({
+        ognoo: { $gte: start, $lte: end },
+        tuluv: 'chuluu',
+      }),
 
-        // 4. Тасалсан ажилчид
-        Irts.countDocuments({
-          ognoo: { $gte: start, $lte: end },
-          tuluv: 'tasalsan',
-        }),
+      // 4. Тасалсан ажилчид
+      Irts.countDocuments({
+        ognoo: { $gte: start, $lte: end },
+        tuluv: 'tasalsan',
+      }),
 
-        // 5. Хоцорсон ажилчид
-        Irts.countDocuments({
-          ognoo: { $gte: start, $lte: end },
-          tuluv: 'khotsorson',
-        }),
+      // 5. Хоцорсон ажилчид
+      Irts.countDocuments({
+        ognoo: { $gte: start, $lte: end },
+        tuluv: 'khotsorson',
+      }),
 
-        // 3. Үүрэг гүйцэтгэж байгаа ажилчидыг tsagdaagiinGazriinId-р бүлэглэх
-        Irts.aggregate([
-          {
-            $match: {
-              ognoo: { $gte: start, $lte: end },
-              // yawsanTsag: null,
-              chuluuniiTurul: null,
-              tasalsanTurul: null,
+      // 3. Үүрэг гүйцэтгэж байгаа ажилчидыг tsagdaagiinGazriinId-р бүлэглэх
+      Irts.aggregate([
+        {
+          $match: {
+            ognoo: { $gte: start, $lte: end },
+            // yawsanTsag: null,
+            chuluuniiTurul: null,
+            tasalsanTurul: null,
+          },
+        },
+        {
+          $group: {
+            _id: '$tsagdaagiinGazriinId',
+            count: { $sum: 1 },
+          },
+        },
+        {
+          $addFields: {
+            objectIdField: { $toObjectId: '$_id' },
+          },
+        },
+        {
+          $lookup: {
+            from: 'tsagdaagiinGazar', // жинхэнэ collection нэр
+            localField: 'objectIdField',
+            foreignField: '_id',
+            as: 'gazriinMedeelel',
+          },
+        },
+        { $unwind: '$gazriinMedeelel' },
+        {
+          $project: {
+            _id: 0,
+            tsagdaagiinGazriinId: '$_id',
+            ajillajBuigToo: '$count',
+            kod: '$gazriinMedeelel.kod',
+            ner: '$gazriinMedeelel.ner',
+          },
+        },
+      ]),
+
+      // 4. Үүрэг гүйцэтгэж байгаа ажилчидыг дүүрэгээр бүлэглэх
+      Ajiltan.aggregate([
+        // 1. Ирцтэй холбох (left outer join)
+        {
+          $lookup: {
+            from: 'irts',
+            localField: 'id', // ajiltan.id
+            foreignField: 'ajiltniiId', // irts.ajiltniiId
+            as: 'irtsuud',
+          },
+        },
+
+        // 2. Өнөөдрийн ирцүүдийг шүүх
+        {
+          $addFields: {
+            irtsToday: {
+              $filter: {
+                input: '$irtsuud',
+                as: 'i',
+                cond: {
+                  $and: [
+                    { $gte: ['$$i.ognoo', start] },
+                    { $lte: ['$$i.ognoo', end] },
+                  ],
+                },
+              },
             },
           },
-          {
-            $group: {
-              _id: '$tsagdaagiinGazriinId',
-              count: { $sum: 1 },
+        },
+
+        // 3. duureg-р бүлэглэх
+        {
+          $group: {
+            _id: '$duureg',
+            ajiltanNiit: { $sum: 1 },
+            irsenAjiltan: {
+              $sum: {
+                $cond: [{ $gt: [{ $size: '$irtsToday' }, 0] }, 1, 0],
+              },
             },
           },
-          {
-            $addFields: {
-              objectIdField: { $toObjectId: '$_id' },
-            },
+        },
+        {
+          $project: {
+            _id: 0,
+            duureg: '$_id',
+            ajiltanNiit: 1,
+            irsenAjiltan: 1,
           },
-          {
-            $lookup: {
-              from: 'tsagdaagiinGazar', // жинхэнэ collection нэр
-              localField: 'objectIdField',
-              foreignField: '_id',
-              as: 'gazriinMedeelel',
-            },
-          },
-          { $unwind: '$gazriinMedeelel' },
-          {
-            $project: {
-              _id: 0,
-              tsagdaagiinGazriinId: '$_id',
-              ajillajBuigToo: '$count',
-              kod: '$gazriinMedeelel.kod',
-              ner: '$gazriinMedeelel.ner',
-            },
-          },
-        ]),
-      ]);
+        },
+      ]),
+    ]);
 
     return res.send({
       workingToday,
@@ -728,6 +787,7 @@ router.get('/irtsStats', tokenShalgakh, async (req, res, next) => {
       absentCount,
       lateCount,
       groupedByGazriinId,
+      groupedByDuureg,
     });
   } catch (error) {
     next(error);
