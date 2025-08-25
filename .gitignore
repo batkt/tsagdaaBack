@@ -14,3 +14,4 @@ dist/
 # Optional eslint cache
 .eslintcache
 uploads*
+file/*
