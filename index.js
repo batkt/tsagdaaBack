@@ -15,8 +15,9 @@ const irtsRoute = require('./routes/irtsRoute');
 const ajiltanRoute = require('./routes/ajiltanRoute');
 const aldaaBarigch = require('./middleware/aldaaBarigch');
 
-const dbUrl = 'mongodb://localhost:27017/tsagdaa'; // mongo
+const dbUrl = process.env.MONGO_URL || 'mongodb://localhost:27017/tsagdaa'; // mongo
 
+mongoose.set('strictQuery', true);
 mongoose
   .connect(dbUrl, {
     useNewUrlParser: true,
