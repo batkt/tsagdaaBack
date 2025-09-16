@@ -24,7 +24,7 @@ mongoose
     useUnifiedTopology: true,
   })
   .then((result) => {
-    console.log('xolbogdson');
+    console.log('xolbogdson 123');
     server.listen(8084);
   })
   .catch((err) => console.log(err));
@@ -40,6 +40,9 @@ app.use(
     limit: '50mb',
   })
 );
+app.get('/health', (req, res) => {
+  res.send('ok');
+});
 app.use(tsegRoute);
 app.use(ajiltanRoute);
 app.use(irtsRoute);
