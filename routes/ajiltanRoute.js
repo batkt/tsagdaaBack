@@ -67,6 +67,7 @@ router.post('/tsegTatya', uploadFile.single('file'), tsegTatya);
 router.post('/tsegGaraarBurtgeh', tsegGaraarBurtgeh);
 
 router.post('/ajiltanNevtrey', async (req, res, next) => {
+  console.log('login ----------', req.body);
   try {
     const ajiltan = await Ajiltan.findOne()
       .where('nevtrekhNer')
@@ -75,7 +76,7 @@ router.post('/ajiltanNevtrey', async (req, res, next) => {
       .catch((err) => {
         next(err);
       });
-    console.log(ajiltan);
+    console.log('sonin ymaa ', ajiltan);
     if (!ajiltan)
       throw new Error('Хэрэглэгчийн нэр эсвэл нууц үг буруу байна!');
     var ok = await ajiltan.passwordShalgaya(req.body.nuutsUg);

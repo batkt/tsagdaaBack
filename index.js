@@ -13,6 +13,7 @@ const { zuragPack } = require('zuragpack');
 const tsegRoute = require('./routes/tsegRoute');
 const irtsRoute = require('./routes/irtsRoute');
 const ajiltanRoute = require('./routes/ajiltanRoute');
+const hariyaNegjRoute = require('./routes/hariyaNegjRoute');
 const aldaaBarigch = require('./middleware/aldaaBarigch');
 
 const dbUrl = process.env.MONGO_URL || 'mongodb://localhost:27017/tsagdaa'; // mongo
@@ -46,6 +47,7 @@ app.get('/health', (req, res) => {
 app.use(tsegRoute);
 app.use(ajiltanRoute);
 app.use(irtsRoute);
+app.use(hariyaNegjRoute);
 zuragPack(app);
 
 app.use(aldaaBarigch);
