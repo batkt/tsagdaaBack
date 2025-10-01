@@ -71,7 +71,7 @@ const sendNotification = async (ajiltniiId, garchig, aguulga) => {
   const medegdel = await Medegdel.create({ ajiltniiId, garchig, aguulga });
   
   const notificationData = {
-    id: medegdel._id,
+    _id: medegdel._id,
     ajiltniiId,
     garchig,
     aguulga,
