@@ -8,16 +8,18 @@ let io = null;
 const initializeNotificationService = (redisClient, socketIO) => {
   io = socketIO;
   
-  // Create separate connections for subscriber and publisher
   redisSubscriber = redisClient.duplicate();
   redisPublisher = redisClient.duplicate();
   
   redisSubscriber.psubscribe('user_*');
   redisSubscriber.on('pmessage', (pattern, channel, message) => {
     try {
+      console.log('📥 Received from Redis:', channel, message);
       const notification = JSON.parse(message);
       const userId = channel.replace('user_', '');
+      console.log('🎯 Sending to user:', userId);
       io.to(userId).emit('notification', notification);
+      console.log('✅ Sent via Socket.IO');
     } catch (error) {
       console.error('Redis notification error:', error);
     }
@@ -27,14 +29,20 @@ const initializeNotificationService = (redisClient, socketIO) => {
 const sendNotification = async (ajiltniiId, garchig, aguulga) => {
   const medegdel = await Medegdel.create({ ajiltniiId, garchig, aguulga });
   
-  await redisPublisher.publish(`user_${ajiltniiId}`, JSON.stringify({
+  const notificationData = {
     id: medegdel._id,
     ajiltniiId,
     garchig,
     aguulga,
     unshsan: false,
     createdAt: medegdel.createdAt
-  }));
+  };
+  
+  console.log('📤 Publishing to Redis:', `user_${ajiltniiId}`, notificationData);
+  
+  await redisPublisher.publish(`user_${ajiltniiId}`, JSON.stringify(notificationData));
+  
+  console.log('✅ Published successfully to Redis');
   
   return medegdel;
 };
