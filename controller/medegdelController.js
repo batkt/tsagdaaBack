@@ -1,15 +1,19 @@
 const asyncHandler = require("express-async-handler");
 const Medegdel = require("../models/medegdel");
 
-let redis = null;
+let redisSubscriber = null;
+let redisPublisher = null;
 let io = null;
 
 const initializeNotificationService = (redisClient, socketIO) => {
-  redis = redisClient;
   io = socketIO;
   
-  redis.psubscribe('user_*');
-  redis.on('pmessage', (pattern, channel, message) => {
+  // Create separate connections for subscriber and publisher
+  redisSubscriber = redisClient.duplicate();
+  redisPublisher = redisClient.duplicate();
+  
+  redisSubscriber.psubscribe('user_*');
+  redisSubscriber.on('pmessage', (pattern, channel, message) => {
     try {
       const notification = JSON.parse(message);
       const userId = channel.replace('user_', '');
@@ -23,7 +27,7 @@ const initializeNotificationService = (redisClient, socketIO) => {
 const sendNotification = async (ajiltniiId, garchig, aguulga) => {
   const medegdel = await Medegdel.create({ ajiltniiId, garchig, aguulga });
   
-  await redis.publish(`user_${ajiltniiId}`, JSON.stringify({
+  await redisPublisher.publish(`user_${ajiltniiId}`, JSON.stringify({
     id: medegdel._id,
     ajiltniiId,
     garchig,
