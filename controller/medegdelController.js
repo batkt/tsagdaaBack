@@ -37,8 +37,8 @@ const sendNotification = async (ajiltniiId, garchig, aguulga) => {
 
 exports.medegdelAvya = asyncHandler(async (req, res, next) => {
   try {
-    const { userId } = req.query;
-    const medegdeluud = await Medegdel.find({ avakh: userId })
+    const { ajiltniiId } = req.query;
+    const medegdeluud = await Medegdel.find({ ajiltniiId })
       .sort({ createdAt: -1 })
       .limit(20);
     res.send(medegdeluud);
@@ -49,15 +49,15 @@ exports.medegdelAvya = asyncHandler(async (req, res, next) => {
 
 exports.medegdelBurtgeh = asyncHandler(async (req, res, next) => {
   try {
-    const { avakh, garchig, aguulga } = req.body;
+    const { ajiltniiId, garchig, aguulga } = req.body;
     
-    if (!avakh || !garchig || !aguulga) {
+    if (!ajiltniiId || !garchig || !aguulga) {
       return res.status(400).json({
-        message: "Хүлээн авагч, гарчиг, агуулга шаардлагатай!"
+        message: "Ажилтны ID, гарчиг, агуулга шаардлагатай!"
       });
     }
 
-    const result = await sendNotification(avakh, garchig, aguulga);
+    const result = await sendNotification(ajiltniiId, garchig, aguulga);
     res.status(200).json({ message: "Мэдэгдэл илгээгдлээ", result });
   } catch (error) {
     next(error);
