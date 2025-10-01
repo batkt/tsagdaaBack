@@ -71,6 +71,8 @@ io.on('connection', async (socket) => {
 
   if (!userId) return;
 
+  socket.join(userId);
+  
   await redis.sadd('online-users', userId);
   await broadcastActiveUserCount();
 
