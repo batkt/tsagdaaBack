@@ -8,6 +8,7 @@ const zurchilSchema = new Schema(
       type: Date,
       default: Date.now,
     },
+    zurchliinId: String,
     zurchliinNer: String,
     zurchliinTovchlol: String,
     zurgiinId: String,

@@ -14,6 +14,8 @@ const tsegRoute = require('./routes/tsegRoute');
 const irtsRoute = require('./routes/irtsRoute');
 const ajiltanRoute = require('./routes/ajiltanRoute');
 const hariyaNegjRoute = require('./routes/hariyaNegjRoute');
+const zurchliinTurulRoute = require('./routes/zurchliinTurulRoute');
+const zurchilRoute = require('./routes/zurchilRoute');
 const aldaaBarigch = require('./middleware/aldaaBarigch');
 
 const dbUrl = process.env.MONGO_URL || 'mongodb://localhost:27017/tsagdaa'; // mongo
@@ -48,6 +50,8 @@ app.use(tsegRoute);
 app.use(ajiltanRoute);
 app.use(irtsRoute);
 app.use(hariyaNegjRoute);
+app.use(zurchliinTurulRoute);
+app.use(zurchilRoute);
 zuragPack(app);
 
 app.use(aldaaBarigch);
@@ -57,7 +61,7 @@ async function broadcastActiveUserCount() {
   io.emit('active-users', count);
 }
 
-cron.schedule('0 20 * * *', async () => {
+cron.schedule('0 4 * * *', async () => {
   console.log('🕓 Ulaanbaatar-ийн 4 цагт ажиллав (UTC дээр 20 цаг)');
   await redis.del('online-users'); // Бүх онлайн хэрэглэгчдийг цэвэрлэнэ
 });

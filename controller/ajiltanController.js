@@ -4,6 +4,7 @@ const Ajiltan = require("../models/ajiltan");
 const Tuluvluguu = require("../models/tuluvluguu");
 const Tseg = require("../models/tseg");
 const xlsx = require("xlsx");
+const HariyaNegj = require("../models/hariyaNegj");
 
 function usegTooruuKhurvuulekh(useg) {
   if (!!useg) return useg.charCodeAt() - 65;
@@ -92,6 +93,7 @@ exports.ajiltanTatya = asyncHandler(async (req, res, next) => {
   try {
     const workbook = xlsx.read(req.file.buffer);
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+    const hariyaNegjData = await HariyaNegj.find();
     const jagsaalt = [];
     var tolgoinObject = {};
     var data = xlsx.utils.sheet_to_json(worksheet, {
@@ -107,7 +109,7 @@ exports.ajiltanTatya = asyncHandler(async (req, res, next) => {
       !worksheet["D1"]?.v?.includes("Албан тушаал") ||
       !worksheet["E1"]?.v?.includes("Регистр") ||
       !worksheet["F1"]?.v?.includes("Хувийн дугаар") ||
-      !worksheet["G1"]?.v?.includes("Проль") ||
+      !worksheet["G1"]?.v?.includes("Дуудлага") ||
       !worksheet["H1"]?.v?.includes("Утас") ||
       !worksheet["I1"]?.v?.includes("Дүүрэг") ||
       !worksheet["J1"]?.v?.includes("Хэлтэс") ||
@@ -134,7 +136,7 @@ exports.ajiltanTatya = asyncHandler(async (req, res, next) => {
           tolgoinObject.register = cellAsString[0];
         else if (worksheet[cellAsString].v === "Хувийн дугаар")
           tolgoinObject.nevtrekhNer = cellAsString[0];
-        else if (worksheet[cellAsString].v === "Проль")
+        else if (worksheet[cellAsString].v === "Дуудлага")
           tolgoinObject.porool = cellAsString[0];
         else if (worksheet[cellAsString].v === "Утас")
           tolgoinObject.utas = cellAsString[0];
@@ -162,7 +164,12 @@ exports.ajiltanTatya = asyncHandler(async (req, res, next) => {
         mur[usegTooruuKhurvuulekh(tolgoinObject.albanTushaal)];
       object.porool = mur[usegTooruuKhurvuulekh(tolgoinObject.porool)];
       object.utas = mur[usegTooruuKhurvuulekh(tolgoinObject.utas)];
-      object.duureg = mur[usegTooruuKhurvuulekh(tolgoinObject.duureg)];
+
+      const duuregCellValue = mur[usegTooruuKhurvuulekh(tolgoinObject?.duureg)];
+      const ajiltanDuureg = hariyaNegjData?.find(
+        (item) => item?.ner?.toLowerCase() === duuregCellValue?.toLowerCase()
+      );
+      object.duureg = ajiltanDuureg?._id;
       object.nevtrekhNer =
         mur[usegTooruuKhurvuulekh(tolgoinObject.nevtrekhNer)];
       if (
@@ -250,8 +257,8 @@ exports.ajiltanZagvarAvya = asyncHandler(async (req, res, next) => {
       width: 20,
     },
     {
-      header: "Проль",
-      key: "Проль",
+      header: "Дуудлага",
+      key: "Дуудлага",
       width: 20,
     },
     {
@@ -275,7 +282,19 @@ exports.ajiltanZagvarAvya = asyncHandler(async (req, res, next) => {
       width: 20,
     },
   ];
+  const duuregColLetter = "I";
+  const hariyaNegjData = await HariyaNegj.find();
+  const DUUREG_LIST = hariyaNegjData?.map((item) => item.ner);
   worksheet.columns = baganuud;
+  worksheet.dataValidations.add(`${duuregColLetter}2:${duuregColLetter}1000`, {
+    type: "list",
+    allowBlank: true,
+    formulae: [`"${DUUREG_LIST.join(",")}"`],
+    showErrorMessage: true,
+    errorStyle: "stop",
+    errorTitle: "Буруу утга",
+    error: "Жагсаалтаас Дүүргийг сонгоно уу."
+  });
   res.setHeader(
     "Content-Type",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

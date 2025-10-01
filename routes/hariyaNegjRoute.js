@@ -6,7 +6,7 @@ const HariyaNegj = require("../models/hariyaNegj");
 
 crud(router, "hariyaNegj", HariyaNegj, UstsanBarimt);
 
-router.post("/hariyaNegjShineerBurtgeh", async (req, res, next) => {
+router.post("/hariyaNegjShineerBurtgeh", tokenShalgakh, async (req, res, next) => {
   try {
     const dawhardal = await HariyaNegj.find({
       buleg: req.body?.buleg,
@@ -27,7 +27,7 @@ router.post("/hariyaNegjShineerBurtgeh", async (req, res, next) => {
   }
 });
 
-router.post("/hariyaNegjZasah", async (req, res, next) => {
+router.post("/hariyaNegjZasah", tokenShalgakh, async (req, res, next) => {
   try {
     const oldson = await HariyaNegj.findById(req.body?._id);
 
