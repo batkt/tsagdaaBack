@@ -14,9 +14,11 @@ const tsegRoute = require('./routes/tsegRoute');
 const irtsRoute = require('./routes/irtsRoute');
 const ajiltanRoute = require('./routes/ajiltanRoute');
 const hariyaNegjRoute = require('./routes/hariyaNegjRoute');
+const medegdelRoute = require('./routes/medegdelRoute');
 const zurchliinTurulRoute = require('./routes/zurchliinTurulRoute');
 const zurchilRoute = require('./routes/zurchilRoute');
 const aldaaBarigch = require('./middleware/aldaaBarigch');
+const { initializeNotificationService } = require('./controller/medegdelController');
 
 const dbUrl = process.env.MONGO_URL || 'mongodb://localhost:27017/tsagdaa'; // mongo
 
@@ -36,6 +38,9 @@ process.env.TZ = 'Asia/Ulaanbaatar';
 
 const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
 
+// Initialize notification service
+const notificationService = initializeNotificationService(redis, io);
+
 app.set('socketio', io);
 app.use(cors());
 app.use(
@@ -50,6 +55,7 @@ app.use(tsegRoute);
 app.use(ajiltanRoute);
 app.use(irtsRoute);
 app.use(hariyaNegjRoute);
+app.use(medegdelRoute);
 app.use(zurchliinTurulRoute);
 app.use(zurchilRoute);
 zuragPack(app);
