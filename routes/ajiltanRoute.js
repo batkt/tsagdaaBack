@@ -161,6 +161,24 @@ router.post('/tokenoorAjiltanAvya', (req, res, next) => {
   }
 });
 
+// Save FCM token for push notifications
+router.post('/saveFCMToken', tokenShalgakh, async (req, res, next) => {
+  try {
+    const { ajiltniiId, fcmToken } = req.body;
+    
+    if (!ajiltniiId || !fcmToken) {
+      return res.status(400).json({
+        message: "Ажилтны ID болон FCM token шаардлагатай!"
+      });
+    }
+
+    await Ajiltan.findByIdAndUpdate(ajiltniiId, { fcmToken });
+    res.json({ success: true, message: 'FCM token амжилттай хадгалагдлаа' });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post('/zogsokhTsegAvya', tokenShalgakh, async (req, res, next) => {
   try {
     var idevkhiteiTuluvluguu = await Tuluvluguu.findOne({

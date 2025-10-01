@@ -1,5 +1,16 @@
 const asyncHandler = require("express-async-handler");
 const Medegdel = require("../models/medegdel");
+const Ajiltan = require("../models/ajiltan");
+const admin = require('firebase-admin');
+
+// Initialize Firebase Admin
+if (!admin.apps.length) {
+  const serviceAccount = require('../firebase-service-account.json');
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+  });
+  console.log('🔥 Firebase Admin initialized successfully');
+}
 
 let redisSubscriber = null;
 let redisPublisher = null;
@@ -14,16 +25,36 @@ const initializeNotificationService = (redisClient, socketIO) => {
   redisSubscriber.psubscribe('user_*');
   redisSubscriber.on('pmessage', (pattern, channel, message) => {
     try {
-      console.log('📥 Received from Redis:', channel, message);
       const notification = JSON.parse(message);
       const userId = channel.replace('user_', '');
-      console.log('🎯 Sending to user:', userId);
       io.to(userId).emit('notification', notification);
-      console.log('✅ Sent via Socket.IO');
     } catch (error) {
-      console.error('Redis notification error:', error);
     }
   });
+};
+
+// Send Firebase push notification
+const sendPushNotification = async (fcmToken, title, body, data = {}) => {
+  try {
+    const message = {
+      token: fcmToken,
+      notification: {
+        title: title,
+        body: body
+      },
+      data: {
+        ...data,
+        click_action: 'FLUTTER_NOTIFICATION_CLICK'
+      }
+    };
+    
+    const response = await admin.messaging().send(message);
+    console.log('🔥 Firebase push sent:', response);
+    return response;
+  } catch (error) {
+    console.error('Firebase push error:', error);
+    throw error;
+  }
 };
 
 const sendNotification = async (ajiltniiId, garchig, aguulga) => {
@@ -37,12 +68,26 @@ const sendNotification = async (ajiltniiId, garchig, aguulga) => {
     unshsan: false,
     createdAt: medegdel.createdAt
   };
-  
   console.log('📤 Publishing to Redis:', `user_${ajiltniiId}`, notificationData);
   
+  // Send via Redis
   await redisPublisher.publish(`user_${ajiltniiId}`, JSON.stringify(notificationData));
   
-  console.log('✅ Published successfully to Redis');
+  // Get FCM token from database and send push notification
+  try {
+    const ajiltan = await Ajiltan.findById(ajiltniiId);
+    if (ajiltan?.fcmToken) {
+      await sendPushNotification(ajiltan.fcmToken, garchig, aguulga, {
+        notificationId: medegdel._id.toString(),
+        ajiltniiId: ajiltniiId
+      });
+    } else {
+      console.log('No FCM token found for user:', ajiltniiId);
+    }
+  } catch (error) {
+    console.error('Push notification failed:', error);
+    // Don't fail the whole request if push fails
+  }
   
   return medegdel;
 };

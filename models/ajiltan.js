@@ -22,6 +22,7 @@ const ajiltanSchema = new Schema(
     register: String,
     khayag: String,
     zurgiinId: String,
+    fcmToken: String, // Firebase Cloud Messaging token
     nuutsUg: {
       type: String,
       select: false,
