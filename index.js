@@ -16,6 +16,7 @@ const ajiltanRoute = require('./routes/ajiltanRoute');
 const hariyaNegjRoute = require('./routes/hariyaNegjRoute');
 const zurchliinTurulRoute = require('./routes/zurchliinTurulRoute');
 const zurchilRoute = require('./routes/zurchilRoute');
+const dashboardRoute = require('./routes/dashboardRoute');
 const aldaaBarigch = require('./middleware/aldaaBarigch');
 
 const dbUrl = process.env.MONGO_URL || 'mongodb://localhost:27017/tsagdaa'; // mongo
@@ -52,6 +53,7 @@ app.use(irtsRoute);
 app.use(hariyaNegjRoute);
 app.use(zurchliinTurulRoute);
 app.use(zurchilRoute);
+app.use(dashboardRoute);
 zuragPack(app);
 
 app.use(aldaaBarigch);

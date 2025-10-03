@@ -23,7 +23,7 @@ router.post("/zurchilShineerBurtgeh", tokenShalgakh, async (req, res, next) => {
     if (!register) {
       throw new Error("Зөрчил гаргагчийн регистр оруулна уу!");
     }
-    if (!omashiniiDugaar) {
+    if (!mashiniiDugaar) {
       throw new Error("Зөрчил гаргагчийн машины дугаар оруулна уу!");
     }
     if (!tsegId) {

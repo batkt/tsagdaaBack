@@ -146,7 +146,6 @@ router.post('/tokenoorAjiltanAvya', (req, res, next) => {
     }
     const token = req.headers.authorization.split(' ')[1];
     const tokenObject = jwt.verify(token, process.env.APP_SECRET, 401);
-    console.log(tokenObject);
     Ajiltan.findById(tokenObject.id)
       .then((urDun) => {
         var urdunJson = urDun.toJSON();
