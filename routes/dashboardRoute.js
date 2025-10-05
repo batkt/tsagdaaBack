@@ -222,17 +222,28 @@ function ajiltanZurchilPaginationPipeline(params) {
   const sortDir = order === "asc" ? 1 : -1;
   pipeline.push({ $sort: { total: sortDir, ner: 1 } });
 
+  // Facet-д: paginated data, мөрийн тоо (totalRow), ба бүх 'total' утгын нийлбэр (total)
   pipeline.push({
     $facet: {
       data: [{ $skip: skip }, { $limit: limit }],
       totalCount: [{ $count: "count" }],
+      totalSum: [
+        {
+          $group: {
+            _id: null,
+            sum: { $sum: "$total" },
+          },
+        },
+      ],
     },
   });
 
+  // Проекц: хүссэн бүтэцтэй болгох
   pipeline.push({
     $project: {
       data: 1,
-      total: { $ifNull: [{ $arrayElemAt: ["$totalCount.count", 0] }, 0] },
+      totalRow: { $ifNull: [{ $arrayElemAt: ["$totalCount.count", 0] }, 0] },
+      total: { $ifNull: [{ $arrayElemAt: ["$totalSum.sum", 0] }, 0] },
     },
   });
 
@@ -270,6 +281,7 @@ router.get("/dashboardEmployees", tokenShalgakh, async (req, res, next) => {
     const result = await ZurchilModel.aggregate(match);
 
     return res.json({
+      totalRow: result?.[0]?.totalRow || 0,
       employees: result?.[0]?.data || [],
     });
   } catch (err) {
