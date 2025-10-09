@@ -3,6 +3,7 @@ const router = express.Router();
 
 const ZurchilModel = require("../models/zurchil");
 const AjiltanModel = require("../models/ajiltan");
+const TsegModel = require("../models/tseg");
 const { tokenShalgakh } = require("zevback");
 
 function countByHariyaPipeline(params = {}) {
@@ -250,6 +251,245 @@ function ajiltanZurchilPaginationPipeline(params) {
   return pipeline;
 }
 
+const getAllAjiltnuudWithStatus = async (
+  tuluvluguuniiId,
+  page = 1,
+  limit = 10
+) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const todayEnd = new Date(today);
+  todayEnd.setHours(23, 59, 59, 999);
+
+  const skip = (page - 1) * limit;
+
+  const pipeline = [
+    {
+      $match: {
+        tuluvluguuniiId: tuluvluguuniiId,
+      },
+    },
+    {
+      $unwind: "$ajiltnuud",
+    },
+    {
+      $addFields: {
+        tsegNer: "$ner",
+        tsegDuureg: "$duureg",
+        ajilEkhlekhOgnoo: "$ajiltnuud.khuvaariinEkhlekhOgnoo",
+        ajilDuusakhOgnoo: "$ajiltnuud.khuvaariinDuusakhOgnoo",
+      },
+    },
+    {
+      $unwind: {
+        path: "$irts",
+        preserveNullAndEmptyArrays: true,
+      },
+    },
+    {
+      $addFields: {
+        irtsMatch: {
+          $and: [
+            { $ifNull: ["$irts", false] },
+            { $eq: ["$irts.ajiltan.nevtrekhNer", "$ajiltnuud.nevtrekhNer"] },
+            { $gte: ["$irts.ognoo", today] },
+            { $lte: ["$irts.ognoo", todayEnd] },
+          ],
+        },
+      },
+    },
+    {
+      $sort: { "irts.ognoo": 1 },
+    },
+
+    // Ажилтан + цэг комбинаци бүрээр бүлэглэх
+    {
+      $group: {
+        _id: {
+          nevtrekhNer: "$ajiltnuud.nevtrekhNer",
+          tsegId: "$_id",
+        },
+        ajiltan: { $first: "$ajiltnuud" },
+        tsegNer: { $first: "$tsegNer" },
+        tsegDuureg: { $first: "$tsegDuureg" },
+        ajilEkhlekhOgnoo: { $first: "$ajilEkhlekhOgnoo" },
+        ajilDuusakhOgnoo: { $first: "$ajilDuusakhOgnoo" },
+        irsenOgnoo: {
+          $first: {
+            $cond: ["$irtsMatch", "$irts.ognoo", null],
+          },
+        },
+      },
+    },
+
+    // Статус болон хоцорсон минутыг тооцоолох
+    {
+      $addFields: {
+        odoo: new Date(),
+        ajilEkhelsen: {
+          $lte: ["$ajilEkhlekhOgnoo", "$$NOW"],
+        },
+      },
+    },
+    {
+      $addFields: {
+        khotorsonMinut: {
+          $cond: [
+            {
+              $and: [
+                "$ajilEkhelsen",
+                { $ne: ["$irsenOgnoo", null] },
+                { $gt: ["$irsenOgnoo", "$ajilEkhlekhOgnoo"] },
+              ],
+            },
+            {
+              $round: [
+                {
+                  $divide: [
+                    { $subtract: ["$irsenOgnoo", "$ajilEkhlekhOgnoo"] },
+                    60000,
+                  ],
+                },
+                0,
+              ],
+            },
+            0,
+          ],
+        },
+        status: {
+          $switch: {
+            branches: [
+              {
+                case: { $gt: ["$ajilEkhlekhOgnoo", "$$NOW"] },
+                then: "Ажил эхлээгүй",
+              },
+              {
+                case: { $eq: ["$irsenOgnoo", null] },
+                then: "Ирээгүй",
+              },
+              {
+                case: { $gt: ["$irsenOgnoo", "$ajilEkhlekhOgnoo"] },
+                then: "Хоцорсон",
+              },
+            ],
+            default: "Цагтаа ирсэн",
+          },
+        },
+      },
+    },
+
+    {
+      $facet: {
+        // Нийт тоо
+        totalCount: [{ $count: "count" }],
+
+        // Хоцорсон тоо
+        khotsorsonCount: [
+          { $match: { status: "Хоцорсон" } },
+          { $count: "count" },
+        ],
+
+        // Тасалсан (ирээгүй) тоо
+        tasalsanCount: [{ $match: { status: "Ирээгүй" } }, { $count: "count" }],
+
+        // Цагтаа ирсэн тоо
+        tsagtaaIrsenCount: [
+          { $match: { status: "Цагтаа ирсэн" } },
+          { $count: "count" },
+        ],
+
+        // Ажил эхлээгүй тоо
+        ajilEkhleeguiCount: [
+          { $match: { status: "Ажил эхлээгүй" } },
+          { $count: "count" },
+        ],
+
+        data: [
+          { $sort: { ajilEkhlekhOgnoo: 1, "ajiltan.ovog": 1 } },
+          { $skip: skip },
+          { $limit: limit },
+          {
+            $project: {
+              _id: 0,
+              nevtrekhNer: "$_id.nevtrekhNer",
+              tsegId: "$_id.tsegId",
+              tsegNer: 1,
+              tsegDuureg: 1,
+              ovog: "$ajiltan.ovog",
+              ner: "$ajiltan.ner",
+              kheltes: "$ajiltan.kheltes",
+              tasag: "$ajiltan.tasag",
+              tsol: "$ajiltan.tsol",
+              albanTushaal: "$ajiltan.albanTushaal",
+              duureg: "$ajiltan.duureg",
+              utas: "$ajiltan.utas",
+              mail: "$ajiltan.mail",
+              register: "$ajiltan.register",
+              khuvaariinNer: "$ajiltan.khuvaariinNer",
+              ajilEkhlekhOgnoo: 1,
+              ajilDuusakhOgnoo: 1,
+              irsenOgnoo: 1,
+              khotorsonMinut: 1,
+              status: 1,
+            },
+          },
+        ],
+      },
+    },
+
+    // 10. Эцсийн бүтцийг тохируулах
+    {
+      $project: {
+        niitAjilchdynToo: {
+          $ifNull: [{ $arrayElemAt: ["$totalCount.count", 0] }, 0],
+        },
+        khotsorsonToo: {
+          $ifNull: [{ $arrayElemAt: ["$khotsorsonCount.count", 0] }, 0],
+        },
+        tasalsanToo: {
+          $ifNull: [{ $arrayElemAt: ["$tasalsanCount.count", 0] }, 0],
+        },
+        tsagtaaIrsenToo: {
+          $ifNull: [{ $arrayElemAt: ["$tsagtaaIrsenCount.count", 0] }, 0],
+        },
+        ajilEkhleeguiToo: {
+          $ifNull: [{ $arrayElemAt: ["$ajilEkhleeguiCount.count", 0] }, 0],
+        },
+        page: { $literal: page },
+        limit: { $literal: limit },
+        data: 1,
+      },
+    },
+
+    {
+      $addFields: {
+        totalPages: {
+          $ceil: { $divide: ["$niitAjilchdiinToo", limit] },
+        },
+      },
+    },
+  ];
+
+  const result = await TsegModel.aggregate(pipeline);
+
+  if (result.length === 0) {
+    return {
+      niitAjilchdiinToo: 0,
+      khotsorsonToo: 0,
+      tasalsanToo: 0,
+      tsagtaaIrsenToo: 0,
+      ajilEkhleeguiToo: 0,
+      page: page,
+      limit: limit,
+      totalPages: 0,
+      data: [],
+    };
+  }
+
+  return result[0];
+};
+
 router.get("/dashboardEmployees", tokenShalgakh, async (req, res, next) => {
   try {
     const {
@@ -324,6 +564,14 @@ router.get("/dashboardDataAvya", tokenShalgakh, async (req, res, next) => {
   } catch (err) {
     next(err);
   }
+});
+
+router.get("/dashboardIrtsAjiltnuud", tokenShalgakh, async (req, res, next) => {
+  const { tuluvluguuniiId } = req.query;
+
+  const ajiltnuud = await getAllAjiltnuudWithStatus(tuluvluguuniiId, 1, 20);
+  console.log(ajiltnuud);
+  return res.json(ajiltnuud);
 });
 
 module.exports = router;
