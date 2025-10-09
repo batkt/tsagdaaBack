@@ -116,7 +116,10 @@ function groupByZurchliinNer(params = {}) {
 
   pipeline.push({
     $group: {
-      _id: { zurchliinNer: "$zurchliinNer" },
+      _id: {
+        zurchliinNer: "$zurchliinNer",
+        zurchliinTovchlol: "$zurchliinTovchlol",
+      },
       count: { $sum: 1 },
     },
   });
@@ -124,6 +127,7 @@ function groupByZurchliinNer(params = {}) {
   pipeline.push({
     $project: {
       _id: "$_id.zurchliinNer",
+      zurchliinTovchlol: "$_id.zurchliinTovchlol",
       total: "$count",
     },
   });
