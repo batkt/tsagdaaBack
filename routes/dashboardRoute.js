@@ -217,7 +217,7 @@ function groupByOntsgoiZurchliinNer(params = {}) {
     },
   });
 
-  // Дүүрэгийн шүүлт (эхэнд хийх)
+  // Дүүрэгийн шүүлт
   if (duuregId) {
     pipeline.push({
       $match: {
@@ -228,11 +228,15 @@ function groupByOntsgoiZurchliinNer(params = {}) {
 
   // Бүлгийн шүүлт хэрэгтэй бол харьяа нэгжийг lookup
   if (buleg && buleg !== "Улс") {
-    // ajiltan.duureg-ийг ObjectId болгох
+    // ajiltan.duureg-ийг ObjectId болгох (onError нэмсэн)
     pipeline.push({
       $addFields: {
         ajiltanDuuregOid: {
-          $toObjectId: "$ajiltan.duureg",
+          $convert: {
+            input: "$ajiltan.duureg",
+            to: "objectId",
+            onError: null,
+          },
         },
       },
     });
@@ -240,16 +244,28 @@ function groupByOntsgoiZurchliinNer(params = {}) {
     pipeline.push({
       $lookup: {
         from: "hariyaNegj",
-        localField: "ajiltanDuuregOid",
-        foreignField: "_id",
+        let: { ajDuuregOid: "$ajiltanDuuregOid", ajDuuregStr: "$ajiltan.duureg" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $or: [
+                  // ObjectId хэлбэрээр харьцуулах
+                  {
+                    $and: [
+                      { $ne: ["$$ajDuuregOid", null] },
+                      { $eq: ["$_id", "$$ajDuuregOid"] },
+                    ],
+                  },
+                  // String хэлбэрээр харьцуулах
+                  { $eq: [{ $toString: "$_id" }, "$$ajDuuregStr"] },
+                ],
+              },
+            },
+          },
+          { $match: { buleg: buleg } },
+        ],
         as: "hariyaMatched",
-      },
-    });
-
-    // Бүлгийн шүүлт
-    pipeline.push({
-      $match: {
-        "hariyaMatched.buleg": buleg,
       },
     });
 
