@@ -189,45 +189,58 @@ router.post('/tuluvluguuKhevlejAvya', tokenShalgakh, async (req, res, next) => {
       turObject.khavtgainNer = khavtgai.ner;
       turObject.khavtgainKod = khavtgai.kod;
       
-      // Polygon coordinates бүтэц: coordinates = [[[lon, lat], [lon, lat], ...]]
-      // Бидэнд хэрэгтэй нь coordinates[0] (координатуудын массив)
+      // Polygon-ийн координатууд
       var tseguud = khavtgai.bairshil.coordinates[0];
       
-      // DEBUG: Бүтцийг шалгах
-      console.log('Original tseguud:', JSON.stringify(tseguud));
-      console.log('First point:', tseguud[0]);
-      console.log('Is array of arrays?', Array.isArray(tseguud) && Array.isArray(tseguud[0]));
-      
-      // Эхний цэгийг төгсгөлд нэмэх (зөвхөн эхнийх нь давтагдаагүй бол)
-      if (tseguud.length > 0) {
-        const ekhiin = tseguud[0];
-        const suuliin = tseguud[tseguud.length - 1];
-        
-        // Эхний болон сүүлийн цэг ялгаатай бол л нэмнэ
-        if (ekhiin[0] !== suuliin[0] || ekhiin[1] !== suuliin[1]) {
-          tseguud = [...tseguud, ekhiin];
-        }
-      }
-      
-      console.log('Modified tseguud:', JSON.stringify(tseguud));
-      
-      var oldsonTseguud = await Tseg.aggregate([
-        {
-          $match: {
-            tuluvluguuniiId: tuluvluguuniiId,
-            bairshil: {
-              $geoWithin: {
-                $geometry: {
-                  type: 'Polygon',
-                  coordinates: [tseguud],
+      // Polygon validate хийх - хэрэв invalid бол buffer ашиглах
+      let validPolygon;
+      try {
+        // Эхлээд анхны polygon-оор оролдох
+        var oldsonTseguud = await Tseg.aggregate([
+          {
+            $match: {
+              tuluvluguuniiId: tuluvluguuniiId,
+              bairshil: {
+                $geoWithin: {
+                  $geometry: {
+                    type: 'Polygon',
+                    coordinates: [tseguud],
+                  },
                 },
               },
             },
           },
-        },
-      ]);
+        ]);
+        turObject.tseguud = oldsonTseguud;
+      } catch (err) {
+        console.log('Invalid polygon, using buffer approach:', err.message);
+        
+        // Polygon invalid бол цэг тус бүрээр шүүх
+        const points = tseguud.slice(0, -1); // Сүүлийн давтагдсан цэгийг хасах
+        
+        // Цэгүүдийн хамгийн бага/их утгыг олох
+        const lons = points.map(p => p[0]);
+        const lats = points.map(p => p[1]);
+        const minLon = Math.min(...lons);
+        const maxLon = Math.max(...lons);
+        const minLat = Math.min(...lats);
+        const maxLat = Math.max(...lats);
+        
+        // Bounding box ашиглан шүүх
+        const oldsonTseguud = await Tseg.aggregate([
+          {
+            $match: {
+              tuluvluguuniiId: tuluvluguuniiId,
+              'bairshil.coordinates.0': { $gte: minLon, $lte: maxLon },
+              'bairshil.coordinates.1': { $gte: minLat, $lte: maxLat },
+            },
+          },
+        ]);
+        
+        turObject.tseguud = oldsonTseguud;
+        turObject.warning = 'Used bounding box instead of polygon';
+      }
       
-      turObject.tseguud = oldsonTseguud;
       butsakhObject.push(turObject);
     }
     
