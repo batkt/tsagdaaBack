@@ -95,24 +95,50 @@ function groupByZurchliinNer(params = {}) {
 
   if (Object.keys(match).length) pipeline.push({ $match: match });
 
-  pipeline.push({
-    $lookup: {
-      from: "hariyaNegj",
-      let: { aj_duureg: "$ajiltan.duureg" },
-      pipeline: [
-        {
-          $match: {
-            $expr: { $eq: [{ $toString: "$_id" }, "$$aj_duureg"] },
-          },
-        },
-        ...(buleg && buleg !== "Улс" ? [{ $match: { buleg: buleg } }] : []),
-      ],
-      as: "hariyaMatched",
-    },
-  });
-
+  // Бүлгийн шүүлт хэрэгтэй бол харьяа нэгжийг lookup
   if (buleg && buleg !== "Улс") {
-    pipeline.push({ $match: { "hariyaMatched.0": { $exists: true } } });
+    pipeline.push({
+      $lookup: {
+        from: "hariyaNegj",
+        let: { ajDuureg: "$ajiltan.duureg" },
+        pipeline: [
+          {
+            $addFields: {
+              ajDuuregAsObjectId: {
+                $convert: {
+                  input: "$$ajDuureg",
+                  to: "objectId",
+                  onError: null,
+                },
+              },
+            },
+          },
+          {
+            $match: {
+              $expr: {
+                $or: [
+                  // ajiltan.duureg нь ObjectId болж чадвал
+                  {
+                    $and: [
+                      { $ne: ["$ajDuuregAsObjectId", null] },
+                      { $eq: ["$_id", "$ajDuuregAsObjectId"] },
+                    ],
+                  },
+                  // Эсвэл string хэлбэрээр харьцуулах
+                  { $eq: [{ $toString: "$_id" }, "$$ajDuureg"] },
+                ],
+              },
+            },
+          },
+          { $match: { buleg: buleg } },
+        ],
+        as: "hariyaMatched",
+      },
+    });
+
+    pipeline.push({
+      $match: { "hariyaMatched.0": { $exists: true } },
+    });
   }
 
   pipeline.push({
@@ -195,8 +221,8 @@ function groupByOntsgoiZurchliinNer(params = {}) {
   if (duuregId) {
     pipeline.push({
       $match: {
-        "ajiltan.duureg": duuregId
-      }
+        "ajiltan.duureg": duuregId,
+      },
     });
   }
 
@@ -206,9 +232,9 @@ function groupByOntsgoiZurchliinNer(params = {}) {
     pipeline.push({
       $addFields: {
         ajiltanDuuregOid: {
-          $toObjectId: "$ajiltan.duureg"
-        }
-      }
+          $toObjectId: "$ajiltan.duureg",
+        },
+      },
     });
 
     pipeline.push({
@@ -222,14 +248,14 @@ function groupByOntsgoiZurchliinNer(params = {}) {
 
     // Бүлгийн шүүлт
     pipeline.push({
-      $match: { 
-        "hariyaMatched.buleg": buleg 
-      }
+      $match: {
+        "hariyaMatched.buleg": buleg,
+      },
     });
 
     // Харьяа нэгж олдсон эсэхийг шалгах
-    pipeline.push({ 
-      $match: { "hariyaMatched.0": { $exists: true } } 
+    pipeline.push({
+      $match: { "hariyaMatched.0": { $exists: true } },
     });
   }
 
