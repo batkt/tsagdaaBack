@@ -178,16 +178,39 @@ router.post('/tuluvluguuKhevlejAvya', tokenShalgakh, async (req, res, next) => {
     var butsakhObject = [];
     var tuluvluguu = await Tuluvluguu.findOne({ _id: tuluvluguuniiId });
     var khavtgainuud = await Khavtgai.find({ tuluvluguuniiId });
+    
     khavtgainuud.sort((a, b) => {
       return a.kod - b.kod;
     });
+    
     for await (const khavtgai of khavtgainuud) {
       var turObject = {};
       turObject.ajiltan = khavtgai.ajiltan;
       turObject.khavtgainNer = khavtgai.ner;
       turObject.khavtgainKod = khavtgai.kod;
+      
+      // Polygon coordinates бүтэц: coordinates = [[[lon, lat], [lon, lat], ...]]
+      // Бидэнд хэрэгтэй нь coordinates[0] (координатуудын массив)
       var tseguud = khavtgai.bairshil.coordinates[0];
-      tseguud.push(tseguud[0]);
+      
+      // DEBUG: Бүтцийг шалгах
+      console.log('Original tseguud:', JSON.stringify(tseguud));
+      console.log('First point:', tseguud[0]);
+      console.log('Is array of arrays?', Array.isArray(tseguud) && Array.isArray(tseguud[0]));
+      
+      // Эхний цэгийг төгсгөлд нэмэх (зөвхөн эхнийх нь давтагдаагүй бол)
+      if (tseguud.length > 0) {
+        const ekhiin = tseguud[0];
+        const suuliin = tseguud[tseguud.length - 1];
+        
+        // Эхний болон сүүлийн цэг ялгаатай бол л нэмнэ
+        if (ekhiin[0] !== suuliin[0] || ekhiin[1] !== suuliin[1]) {
+          tseguud = [...tseguud, ekhiin];
+        }
+      }
+      
+      console.log('Modified tseguud:', JSON.stringify(tseguud));
+      
       var oldsonTseguud = await Tseg.aggregate([
         {
           $match: {
@@ -203,11 +226,14 @@ router.post('/tuluvluguuKhevlejAvya', tokenShalgakh, async (req, res, next) => {
           },
         },
       ]);
+      
       turObject.tseguud = oldsonTseguud;
       butsakhObject.push(turObject);
     }
+    
     res.send(butsakhObject);
   } catch (error) {
+    console.error('Error:', error);
     next(error);
   }
 });
