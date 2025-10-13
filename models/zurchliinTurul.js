@@ -6,6 +6,8 @@ const zurchliinTurulSchema = new Schema(
   {
     ner: String,
     tovchlol: String,
+    tovchNer: String,
+    ontsgoiBolgoh: { type: Boolean, default: false },
   },
   {
     timestamps: true,

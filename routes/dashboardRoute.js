@@ -3,6 +3,7 @@ const router = express.Router();
 
 const ZurchilModel = require("../models/zurchil");
 const AjiltanModel = require("../models/ajiltan");
+const HariyaNegjModel = require("../models/hariyaNegj");
 const TsegModel = require("../models/tseg");
 const { tokenShalgakh } = require("zevback");
 
@@ -112,6 +113,124 @@ function groupByZurchliinNer(params = {}) {
 
   if (buleg && buleg !== "Улс") {
     pipeline.push({ $match: { "hariyaMatched.0": { $exists: true } } });
+  }
+
+  pipeline.push({
+    $group: {
+      _id: {
+        zurchliinNer: "$zurchliinNer",
+        zurchliinTovchlol: "$zurchliinTovchlol",
+      },
+      count: { $sum: 1 },
+    },
+  });
+
+  pipeline.push({
+    $project: {
+      _id: "$_id.zurchliinNer",
+      zurchliinTovchlol: "$_id.zurchliinTovchlol",
+      total: "$count",
+    },
+  });
+
+  const sortDir = sort === "asc" ? 1 : -1;
+  pipeline.push({ $sort: { total: sortDir, _id: 1 } });
+
+  return pipeline;
+}
+
+function groupByOntsgoiZurchliinNer(params = {}) {
+  const { startDate, endDate, duuregId, buleg, sort = "desc" } = params;
+
+  const match = {};
+  if (startDate && endDate) {
+    match.ognoo = { $gte: new Date(startDate), $lte: new Date(endDate) };
+  } else if (startDate) {
+    match.ognoo = { $gte: new Date(startDate) };
+  } else if (endDate) {
+    match.ognoo = { $lte: new Date(endDate) };
+  }
+
+  const pipeline = [];
+
+  if (Object.keys(match).length) pipeline.push({ $match: match });
+
+  // Зөрчлийн төрлийн мэдээллийг lookup
+  pipeline.push({
+    $lookup: {
+      from: "zurchliinTurul",
+      let: {
+        zurchNer: "$zurchliinNer",
+        zurchTovchlol: "$zurchliinTovchlol",
+      },
+      pipeline: [
+        {
+          $match: {
+            $expr: {
+              $and: [
+                { $eq: ["$ontsgoiBolgoh", true] },
+                {
+                  $or: [
+                    { $eq: ["$ner", "$$zurchNer"] },
+                    { $eq: ["$tovchNer", "$$zurchTovchlol"] },
+                  ],
+                },
+              ],
+            },
+          },
+        },
+      ],
+      as: "zurchliinTurul",
+    },
+  });
+
+  // Зөвхөн онцгой болгосон зөрчлүүдийг үлдээх
+  pipeline.push({
+    $match: {
+      "zurchliinTurul.0": { $exists: true },
+    },
+  });
+
+  // Дүүрэгийн шүүлт (эхэнд хийх)
+  if (duuregId) {
+    pipeline.push({
+      $match: {
+        "ajiltan.duureg": duuregId
+      }
+    });
+  }
+
+  // Бүлгийн шүүлт хэрэгтэй бол харьяа нэгжийг lookup
+  if (buleg && buleg !== "Улс") {
+    // ajiltan.duureg-ийг ObjectId болгох
+    pipeline.push({
+      $addFields: {
+        ajiltanDuuregOid: {
+          $toObjectId: "$ajiltan.duureg"
+        }
+      }
+    });
+
+    pipeline.push({
+      $lookup: {
+        from: "hariyaNegj",
+        localField: "ajiltanDuuregOid",
+        foreignField: "_id",
+        as: "hariyaMatched",
+      },
+    });
+
+    // Бүлгийн шүүлт
+    pipeline.push({
+      $match: { 
+        "hariyaMatched.buleg": buleg 
+      }
+    });
+
+    // Харьяа нэгж олдсон эсэхийг шалгах
+    pipeline.push({ 
+      $match: { "hariyaMatched.0": { $exists: true } } 
+    });
   }
 
   pipeline.push({
@@ -494,6 +613,318 @@ const getAllAjiltnuudWithStatus = async (
   return result[0];
 };
 
+const getHariyaNegjAjiltnuudynStatusByBuleg = async (buleg) => {
+  // Монголын цагийн бүс (+8 UTC)
+  const odoo = new Date();
+  const mongolTime = new Date(odoo.getTime() + 8 * 60 * 60 * 1000);
+
+  const today = new Date(mongolTime);
+  today.setHours(0, 0, 0, 0);
+
+  const todayEnd = new Date(today);
+  todayEnd.setHours(23, 59, 59, 999);
+
+  // АЛХАМ 1: Бүх харьяа нэгжүүдийг авах (бүлгээр шүүсэн)
+  const hariyaNegjFilter = buleg ? { buleg: buleg } : {};
+  const allHariyaNegj = await HariyaNegjModel.find(hariyaNegjFilter).lean();
+
+  // АЛХАМ 2: Ажилчдын мэдээллийг aggregation-аар авах
+  const ajiltnuudPipeline = [
+    {
+      $lookup: {
+        from: "tuluvluguu",
+        let: { tuluvluguuniiId: "$tuluvluguuniiId" },
+        pipeline: [
+          {
+            $match: {
+              $expr: {
+                $and: [
+                  { $eq: ["$_id", { $toObjectId: "$$tuluvluguuniiId" }] },
+                  { $eq: ["$idevkhiteiEsekh", true] },
+                  { $lte: ["$ekhlekhOgnoo", todayEnd] },
+                  { $gte: ["$duusakhOgnoo", today] },
+                ],
+              },
+            },
+          },
+        ],
+        as: "tuluvluguu",
+      },
+    },
+
+    {
+      $match: {
+        "tuluvluguu.0": { $exists: true },
+      },
+    },
+
+    {
+      $unwind: "$ajiltnuud",
+    },
+
+    {
+      $addFields: {
+        khuvaariinEkhlekhMongolTime: {
+          $add: ["$ajiltnuud.khuvaariinEkhlekhOgnoo", 8 * 60 * 60 * 1000],
+        },
+        khuvaariinDuusakhMongolTime: {
+          $add: ["$ajiltnuud.khuvaariinDuusakhOgnoo", 8 * 60 * 60 * 1000],
+        },
+      },
+    },
+
+    {
+      $addFields: {
+        onoodrKhuvaartai: {
+          $and: [
+            { $lte: ["$khuvaariinEkhlekhMongolTime", todayEnd] },
+            { $gte: ["$khuvaariinDuusakhMongolTime", today] },
+          ],
+        },
+        ajillajBaigaa: {
+          $and: [
+            { $lte: ["$khuvaariinEkhlekhMongolTime", mongolTime] },
+            { $gte: ["$khuvaariinDuusakhMongolTime", mongolTime] },
+          ],
+        },
+      },
+    },
+
+    {
+      $match: {
+        onoodrKhuvaartai: true,
+      },
+    },
+
+    // ЦЭГИЙН ДҮҮРЭГ + UNIQUE ажилтан тоолохын тулд
+    {
+      $group: {
+        _id: {
+          hariyaNegj: "$duureg", // ЗАСАВ: ajiltnuud.duureg -> $duureg (цэгийн дүүрэг)
+          nevtrekhNer: "$ajiltnuud.nevtrekhNer",
+        },
+        ajillajBaigaa: { $max: "$ajillajBaigaa" },
+      },
+    },
+
+    // Харьяа нэгж бүрээр дахин бүлэглэх
+    {
+      $group: {
+        _id: "$_id.hariyaNegj",
+        onoodrKhuvaartaiAjiltnuudynToo: { $sum: 1 },
+        ajillajBaigaaAjiltnuudynToo: {
+          $sum: { $cond: ["$ajillajBaigaa", 1, 0] },
+        },
+        amarchBaigaaAjiltnuudynToo: {
+          $sum: { $cond: ["$ajillajBaigaa", 0, 1] },
+        },
+      },
+    },
+  ];
+
+  const ajiltnuudResult = await TsegModel.aggregate(ajiltnuudPipeline);
+
+  // АЛХАМ 3: Ажилчдын мэдээллийг Map руу хөрвүүлэх
+  const ajiltnuudMap = new Map();
+  ajiltnuudResult.forEach((item) => {
+    if (item._id) {
+      ajiltnuudMap.set(item._id.toString(), {
+        onoodrKhuvaartaiAjiltnuudynToo:
+          item.onoodrKhuvaartaiAjiltnuudynToo || 0,
+        ajillajBaigaaAjiltnuudynToo: item.ajillajBaigaaAjiltnuudynToo || 0,
+        amarchBaigaaAjiltnuudynToo: item.amarchBaigaaAjiltnuudynToo || 0,
+      });
+    }
+  });
+
+  // АЛХАМ 4: Бүх харьяа нэгжийг ажилчдын мэдээлэлтэй нэгтгэх
+  const duurguud = allHariyaNegj.map((hariyaNegj) => {
+    const ajiltnuudData = ajiltnuudMap.get(hariyaNegj._id.toString()) || {
+      onoodrKhuvaartaiAjiltnuudynToo: 0,
+      ajillajBaigaaAjiltnuudynToo: 0,
+      amarchBaigaaAjiltnuudynToo: 0,
+    };
+
+    return {
+      _id: hariyaNegj._id,
+      buleg: hariyaNegj.buleg,
+      ner: hariyaNegj.ner,
+      onoodrKhuvaartaiAjiltnuudynToo:
+        ajiltnuudData.onoodrKhuvaartaiAjiltnuudynToo,
+      ajillajBaigaaAjiltnuudynToo: ajiltnuudData.ajillajBaigaaAjiltnuudynToo,
+      amarchBaigaaAjiltnuudynToo: ajiltnuudData.amarchBaigaaAjiltnuudynToo,
+    };
+  });
+
+  // Ажилчдын тоогоор эрэмбэлэх
+  duurguud.sort(
+    (a, b) =>
+      b.onoodrKhuvaartaiAjiltnuudynToo - a.onoodrKhuvaartaiAjiltnuudynToo
+  );
+
+  // АЛХАМ 5: Нэгтгэл тооцоолох
+  const summary = {
+    niitDuureg: duurguud.length,
+    niitOnoodrKhuvaartai: duurguud.reduce(
+      (sum, d) => sum + d.onoodrKhuvaartaiAjiltnuudynToo,
+      0
+    ),
+    niitAjillajBaigaa: duurguud.reduce(
+      (sum, d) => sum + d.ajillajBaigaaAjiltnuudynToo,
+      0
+    ),
+    niitAmarchBaigaa: duurguud.reduce(
+      (sum, d) => sum + d.amarchBaigaaAjiltnuudynToo,
+      0
+    ),
+  };
+
+  return {
+    buleg: buleg,
+    summary,
+    duurguud,
+  };
+};
+
+const getTseguudCountByDuureg = async (params = {}) => {
+  const { startDate, endDate, buleg } = params;
+
+  const getMongoTime = (date) => {
+    if (!date) return null;
+    const d = new Date(date);
+    return new Date(d.getTime() + 8 * 60 * 60 * 1000);
+  };
+
+  const start = getMongoTime(startDate);
+  const end = getMongoTime(endDate);
+
+  const pipeline = [];
+
+  // 1. Төлөвлөгөөнүүдийг огнооны хоорондоос олох
+  const tuluvluguuMatch = {};
+
+  if (start && end) {
+    tuluvluguuMatch.$or = [
+      { ekhlekhOgnoo: { $gte: start, $lte: end } },
+      { duusakhOgnoo: { $gte: start, $lte: end } },
+      { ekhlekhOgnoo: { $lte: start }, duusakhOgnoo: { $gte: end } },
+    ];
+  } else if (start) {
+    tuluvluguuMatch.duusakhOgnoo = { $gte: start };
+  } else if (end) {
+    tuluvluguuMatch.ekhlekhOgnoo = { $lte: end };
+  }
+
+  pipeline.push({
+    $lookup: {
+      from: "tuluvluguu",
+      let: { tuluvluguuniiId: "$tuluvluguuniiId" },
+      pipeline: [
+        {
+          $match: {
+            $expr: { $eq: ["$_id", { $toObjectId: "$$tuluvluguuniiId" }] },
+          },
+        },
+        ...(Object.keys(tuluvluguuMatch).length > 0
+          ? [{ $match: tuluvluguuMatch }]
+          : []),
+      ],
+      as: "tuluvluguu",
+    },
+  });
+
+  pipeline.push({
+    $match: {
+      "tuluvluguu.0": { $exists: true },
+    },
+  });
+
+  // Харьяа нэгжийг lookup хийх
+  pipeline.push({
+    $lookup: {
+      from: "hariyaNegj",
+      let: { duuregValue: "$duureg" },
+      pipeline: [
+        {
+          $addFields: {
+            duuregAsObjectId: {
+              $convert: {
+                input: "$$duuregValue",
+                to: "objectId",
+                onError: null,
+              },
+            },
+          },
+        },
+        {
+          $match: {
+            $expr: {
+              $or: [
+                // duureg нь ObjectId болж чадвал _id-тай харьцуулах
+                {
+                  $and: [
+                    { $ne: ["$duuregAsObjectId", null] },
+                    { $eq: ["$_id", "$duuregAsObjectId"] },
+                  ],
+                },
+                // duureg нь нэр бол ner-тэй харьцуулах
+                { $eq: ["$ner", "$$duuregValue"] },
+              ],
+            },
+          },
+        },
+        ...(buleg ? [{ $match: { buleg: buleg } }] : []),
+      ],
+      as: "hariyaNegj",
+    },
+  });
+
+  pipeline.push({
+    $match: {
+      "hariyaNegj.0": { $exists: true },
+    },
+  });
+
+  pipeline.push({
+    $unwind: {
+      path: "$hariyaNegj",
+      preserveNullAndEmptyArrays: false,
+    },
+  });
+
+  // Дүүргээр бүлэглэх
+  pipeline.push({
+    $group: {
+      _id: "$duureg",
+      duureg: { $first: "$hariyaNegj.ner" },
+      buleg: { $first: "$hariyaNegj.buleg" },
+      tseguudynToo: { $sum: 1 },
+    },
+  });
+
+  pipeline.push({
+    $project: {
+      _id: 1,
+      duureg: 1,
+      buleg: 1,
+      tseguudynToo: 1,
+    },
+  });
+
+  pipeline.push({
+    $sort: { tseguudynToo: -1 },
+  });
+
+  const result = await TsegModel.aggregate(pipeline);
+
+  const summary = {
+    niitDuureg: result.length,
+    niitTseg: result.reduce((sum, d) => sum + d.tseguudynToo, 0),
+  };
+
+  return { summary, duurguud: result };
+};
+
 router.get("/dashboardEmployees", tokenShalgakh, async (req, res, next) => {
   try {
     const {
@@ -533,49 +964,112 @@ router.get("/dashboardEmployees", tokenShalgakh, async (req, res, next) => {
   }
 });
 
-router.get("/dashboardDataAvya", tokenShalgakh, async (req, res, next) => {
-  try {
-    const { start, end, negj, buleg = "Улс" } = req.query;
-    const tokenData = req.body?.nevtersenAjiltniiToken;
-    const userId = tokenData?.id;
-    if (!userId) {
-      throw new Error("Энэ үйлдлийг хийх эрх байхгүй байна!", 401);
+router.get(
+  "/dashboardZurchilDuurgeer",
+  tokenShalgakh,
+  async (req, res, next) => {
+    try {
+      const { start, end, duuregId, buleg = "Улс" } = req.query;
+      const tokenData = req.body?.nevtersenAjiltniiToken;
+      const userId = tokenData?.id;
+      if (!userId) {
+        throw new Error("Энэ үйлдлийг хийх эрх байхгүй байна!", 401);
+      }
+
+      const dateRange = { startDate: new Date(start), endDate: new Date(end) };
+
+      const pipeline1 = countByHariyaPipeline({
+        ...dateRange,
+        buleg,
+      });
+      const duurguudZurchil = await ZurchilModel.aggregate(pipeline1);
+      return res.json({
+        duurguudZurchil,
+      });
+    } catch (err) {
+      next(err);
     }
-    const ajiltan = await AjiltanModel.findById(userId);
-
-    const dateRange = { startDate: new Date(start), endDate: new Date(end) };
-
-    const pipeline1 = countByHariyaPipeline({
-      ...dateRange,
-      buleg,
-    });
-    const duurguudZurchil = await ZurchilModel.aggregate(pipeline1);
-    const pipeline2 = groupByZurchliinNer({
-      ...dateRange,
-      buleg,
-      duuregId: negj,
-      ajiltan,
-    });
-    const result = await ZurchilModel.aggregate(pipeline2);
-    const totalSum = result.reduce((sum, item) => sum + item.total, 0);
-    return res.json({
-      duurguudZurchil,
-      overview: {
-        data: result,
-        total: totalSum,
-      },
-    });
-  } catch (err) {
-    next(err);
   }
-});
+);
+
+router.get(
+  "/dashboardZurchilTurluur",
+  tokenShalgakh,
+  async (req, res, next) => {
+    try {
+      const { start, end, duuregId, buleg = "Улс" } = req.query;
+      const tokenData = req.body?.nevtersenAjiltniiToken;
+      const userId = tokenData?.id;
+      if (!userId) {
+        throw new Error("Энэ үйлдлийг хийх эрх байхгүй байна!", 401);
+      }
+      const ajiltan = await AjiltanModel.findById(userId);
+
+      const dateRange = { startDate: new Date(start), endDate: new Date(end) };
+
+      const pipeline1 = groupByZurchliinNer({
+        ...dateRange,
+        buleg,
+        duuregId: duuregId,
+        ajiltan,
+      });
+
+      const pipeline2 = groupByOntsgoiZurchliinNer({
+        ...dateRange,
+        buleg,
+        duuregId: duuregId,
+      });
+
+      const result = await ZurchilModel.aggregate(pipeline1);
+      const result2 = await ZurchilModel.aggregate(pipeline2);
+
+      const totalSum = result.reduce((sum, item) => sum + item.total, 0);
+      return res.json({
+        zurchilOntsgoi: result2,
+        overview: {
+          data: result,
+          total: totalSum,
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 router.get("/dashboardIrtsAjiltnuud", tokenShalgakh, async (req, res, next) => {
   const { tuluvluguuniiId } = req.query;
 
   const ajiltnuud = await getAllAjiltnuudWithStatus(tuluvluguuniiId, 1, 20);
-  console.log(ajiltnuud);
   return res.json(ajiltnuud);
+});
+
+router.get("/dashboardIrtsDuurgeer", tokenShalgakh, async (req, res, next) => {
+  const { buleg } = req.query;
+
+  const result = await getHariyaNegjAjiltnuudynStatusByBuleg(buleg);
+  return res.json(result);
+});
+
+router.get("/dashboardTsegData", tokenShalgakh, async (req, res, next) => {
+  try {
+    const { start, end, duuregId, buleg } = req.query;
+    const tokenData = req.body?.nevtersenAjiltniiToken;
+    const userId = tokenData?.id;
+    if (!userId) {
+      throw new Error("Энэ үйлдлийг хийх эрх байхгүй байна!", 401);
+    }
+
+    const result = await getTseguudCountByDuureg({
+      startDate: start,
+      endDate: end,
+      buleg: buleg, // эсвэл null
+      duuregId: duuregId, // эсвэл харьяа нэгжийн ID
+    });
+    return res.json(result);
+  } catch (err) {
+    next(err);
+  }
 });
 
 module.exports = router;

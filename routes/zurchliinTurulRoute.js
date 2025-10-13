@@ -11,6 +11,7 @@ router.post(
     try {
       const dawhardal = await ZurchliinTurulModel.find({
         tovchlol: req.body?.tovchlol,
+        tovchNer: req.body?.tovchNer,
         ner: req.body?.ner,
       });
 
@@ -37,6 +38,7 @@ router.post("/zurchliinTurulZasah", tokenShalgakh, async (req, res, next) => {
       return res.status(400).json({ message: "Зөрчлийн төрөл олдсонгүй." });
     }
 
+    console.log(req.body);
     await ZurchliinTurulModel.updateOne(
       {
         _id: req.body?._id,
@@ -44,6 +46,7 @@ router.post("/zurchliinTurulZasah", tokenShalgakh, async (req, res, next) => {
       {
         $set: {
           tovchlol: req.body?.tovchlol,
+          tovchNer: req.body?.tovchNer,
           ner: req.body?.ner,
         },
       }
@@ -56,6 +59,37 @@ router.post("/zurchliinTurulZasah", tokenShalgakh, async (req, res, next) => {
     next(err);
   }
 });
+
+router.post(
+  "/zurchliinTurulOntsgoiBolgoh",
+  tokenShalgakh,
+  async (req, res, next) => {
+    try {
+      const oldson = await ZurchliinTurulModel.findById(req.body?._id);
+
+      if (!oldson) {
+        return res.status(400).json({ message: "Зөрчлийн төрөл олдсонгүй." });
+      }
+
+      await ZurchliinTurulModel.updateOne(
+        {
+          _id: req.body?._id,
+        },
+        {
+          $set: {
+            ontsgoiBolgoh: !oldson.ontsgoiBolgoh,
+          },
+        }
+      );
+
+      return res.json({
+        message: "Амжилттай хадгалагдлаа",
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
 
 router.get("/zurchliinTurulAvya", tokenShalgakh, async (req, res, next) => {
   try {
