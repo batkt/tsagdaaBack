@@ -7,15 +7,24 @@ const habeaSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    ajiltanId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Ajiltan",
+      required: true,
+    },
+    tuluvluguuniiID: {
+      type: String,
+      required: true,
+    },
     baiguullagiinId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Baiguullaga",
-      required: true,
+      required: false,  
     },
     salbariinId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Salbar",
-      required: true,
+      required: false,  
     },
     ognoo: {
       type: Date,
