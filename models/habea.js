@@ -1,8 +1,10 @@
+const mongoose = require("mongoose");
+
 const habeaSchema = new mongoose.Schema(
   {
     asuult: {
       type: String,
-      required: false,
+      required: false,  
       trim: true,
     },
     ajiltanId: {
@@ -25,7 +27,7 @@ const habeaSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
-
+    // For storing answers
     ajiltniiId: String,
     asuulguud: Array,
     turul: {
@@ -39,3 +41,5 @@ const habeaSchema = new mongoose.Schema(
     collection: "habea",
   }
 );
+
+module.exports = mongoose.model("Habea", habeaSchema);

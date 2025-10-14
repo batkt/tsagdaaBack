@@ -2,8 +2,8 @@ const express = require("express");
 const router = express.Router();
 const { tokenShalgakh } = require("zevback");
 const HabeaModel = require("../models/habea");
-const AjiltanModel = require("../models/ajiltan");
 
+// Save questions (from web)
 router.post(
   "/asuulgaOlnoorKhadgalya",
   tokenShalgakh,
@@ -20,6 +20,7 @@ router.post(
           ajiltanId: mur.ajiltanId,
           tuluvluguuniiID: mur.tuluvluguuniiID,
           ognoo: mur.ognoo || new Date(),
+          turul: "asuult", // Mark as question
         };
 
         if (mur.baiguullagiinId || req.user?.baiguullagaId) {
@@ -30,12 +31,10 @@ router.post(
           newItem.salbariinId = mur.salbariinId || req.user?.salbarId;
         }
 
-        console.log("Saving item:", newItem);
         return newItem;
       });
 
-      const savedData = await HabeaModel.insertMany(asuulguud);
-      console.log("Saved successfully:", savedData);
+      await HabeaModel.insertMany(asuulguud);
       res.json(true);
     } catch (error) {
       console.error("Error saving asuulga:", error);
@@ -44,6 +43,20 @@ router.post(
   }
 );
 
+// Delete question
+router.post("/asuulgaUstgay", tokenShalgakh, async (req, res, next) => {
+  try {
+    const { id } = req.body;
+    if (!id) return res.status(400).json({ error: "ID шаардлагатай" });
+
+    await HabeaModel.deleteOne({ _id: id });
+    res.json(true);
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get questions for web
 router.post("/asuulgaAvya", tokenShalgakh, async (req, res, next) => {
   try {
     const {
@@ -52,21 +65,20 @@ router.post("/asuulgaAvya", tokenShalgakh, async (req, res, next) => {
       khuudasniiKhemjee = 20,
     } = req.body;
 
-    console.log("Query received:", query);
-    console.log("Pagination:", { khuudasniiDugaar, khuudasniiKhemjee });
+    // Only fetch questions, not answers
+    query.turul = "asuult";
+
+    console.log("Web query received:", query);
 
     const skip = (khuudasniiDugaar - 1) * khuudasniiKhemjee;
 
     const total = await HabeaModel.countDocuments(query);
-    console.log("Total count:", total);
-
     const jagsaalt = await HabeaModel.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(khuudasniiKhemjee);
 
     console.log("Found items:", jagsaalt.length);
-    console.log("First item:", jagsaalt[0]);
 
     res.json({
       niitMur: total,
@@ -80,64 +92,18 @@ router.post("/asuulgaAvya", tokenShalgakh, async (req, res, next) => {
   }
 });
 
-router.post("/asuulgaUstgay", tokenShalgakh, async (req, res, next) => {
-  try {
-    const { id } = req.body;
-    if (!id) return res.status(400).json({ error: "ID шаардлагатай" });
-
-    await HabeaModel.deleteOne({ _id: id });
-    res.json(true);
-  } catch (error) {
-    next(error);
-  }
-});
-
-router.get("/habeaAvya", tokenShalgakh, async (req, res, next) => {
-  try {
-    const data = await HabeaModel.find().sort({ createdAt: -1 });
-    return res.json(data);
-  } catch (err) {
-    next(err);
-  }
-});
-router.post("/khabTuukhKhadgalya", tokenShalgakh, async (req, res, next) => {
-  try {
-    const { asuulguud, ajiltniiId, ognoo } = req.body;
-
-    console.log("Received save request:", req.body);
-
-    const existingRecord = await HabeaModel.findOne({
-      ajiltniiId,
-      ognoo: new Date(ognoo),
-      turul: "khariult",
-    });
-
-    if (existingRecord) {
-      existingRecord.asuulguud = asuulguud;
-      await existingRecord.save();
-    } else {
-      await HabeaModel.create({
-        ajiltniiId,
-        ognoo: new Date(ognoo),
-        asuulguud,
-        turul: "khariult",
-      });
-    }
-
-    res.json("Amjilttai");
-  } catch (error) {
-    console.error("Error saving khabTuukh:", error);
-    next(error);
-  }
-});
+// Get questions for mobile
 router.post("/habeaAvyaFiltered", tokenShalgakh, async (req, res, next) => {
   try {
     const { ognoo } = req.body;
 
-    console.log("Mobile fetch request:", { ognoo });
+    console.log("Mobile fetch request:", req.body);
 
-    const query = {};
+    const query = {
+      turul: "asuult", // Only fetch questions
+    };
 
+    // Filter by date range if provided
     if (ognoo && ognoo.$gte && ognoo.$lte) {
       query.ognoo = {
         $gte: new Date(ognoo.$gte),
@@ -147,7 +113,7 @@ router.post("/habeaAvyaFiltered", tokenShalgakh, async (req, res, next) => {
 
     console.log("Query:", query);
 
-    const data = await HabeaModel.find(query).sort({ createdAt: -1 });
+    const data = await HabeaModel.find(query).sort({ createdAt: -1 }).lean();
 
     console.log("Found items:", data.length);
 
@@ -165,6 +131,91 @@ router.post("/habeaAvyaFiltered", tokenShalgakh, async (req, res, next) => {
     });
   } catch (err) {
     console.error("Error in habeaAvyaFiltered:", err);
+    return res.status(500).json({
+      error: "Server error",
+      message: err.message,
+    });
+  }
+});
+
+// Save answers (from mobile)
+router.post("/khabTuukhKhadgalya", tokenShalgakh, async (req, res, next) => {
+  try {
+    const { asuulguud, ajiltniiId, ognoo } = req.body;
+
+    console.log("Received save request:", req.body);
+
+    if (!asuulguud || !Array.isArray(asuulguud) || asuulguud.length === 0) {
+      return res.status(400).json({ error: "Asuulguud хоосон байна" });
+    }
+
+    if (!ajiltniiId) {
+      return res.status(400).json({ error: "Ajiltan ID шаардлагатай" });
+    }
+
+    // Check if answer record exists for this date and ajiltan
+    const existingRecord = await HabeaModel.findOne({
+      ajiltniiId,
+      ognoo: new Date(ognoo),
+      turul: "khariult",
+    });
+
+    if (existingRecord) {
+      // Update existing answer record
+      existingRecord.asuulguud = asuulguud;
+      existingRecord.updatedAt = new Date();
+      await existingRecord.save();
+      console.log("Updated existing answer record");
+    } else {
+      // Create new answer record
+      await HabeaModel.create({
+        ajiltniiId,
+        ognoo: new Date(ognoo),
+        asuulguud,
+        turul: "khariult",
+      });
+      console.log("Created new answer record");
+    }
+
+    res.json("Amjilttai");
+  } catch (error) {
+    console.error("Error saving khabTuukh:", error);
+    next(error);
+  }
+});
+
+// Get saved answers (from mobile)
+router.post("/khabTuukhAvya", tokenShalgakh, async (req, res, next) => {
+  try {
+    const {
+      query = {},
+      khuudasniiDugaar = 1,
+      khuudasniiKhemjee = 20,
+    } = req.body;
+
+    // Only fetch answer records
+    query.turul = "khariult";
+
+    console.log("Fetching khabTuukh with query:", query);
+
+    const skip = (khuudasniiDugaar - 1) * khuudasniiKhemjee;
+
+    const total = await HabeaModel.countDocuments(query);
+    const jagsaalt = await HabeaModel.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(khuudasniiKhemjee);
+
+    console.log("Found answer records:", jagsaalt.length);
+
+    res.json({
+      niitMur: total,
+      khuudasniiDugaar,
+      khuudasniiKhemjee,
+      jagsaalt,
+    });
+  } catch (err) {
+    console.error("Error fetching khabTuukh:", err);
     next(err);
   }
 });
