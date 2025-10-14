@@ -11,6 +11,7 @@ router.post("/hariyaNegjShineerBurtgeh", tokenShalgakh, async (req, res, next) =
     const dawhardal = await HariyaNegj.find({
       buleg: req.body?.buleg,
       ner: req.body?.ner,
+      tovchlol: req.body?.tovchlol,
     });
 
     if (dawhardal?.length > 0) {
@@ -43,6 +44,7 @@ router.post("/hariyaNegjZasah", tokenShalgakh, async (req, res, next) => {
         $set: {
           buleg: req.body?.buleg,
           ner: req.body?.ner,
+          tovchlol: req.body?.tovchlol,
         },
       }
     );
