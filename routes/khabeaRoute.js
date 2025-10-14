@@ -19,7 +19,7 @@ router.post(
           ajiltanId: mur.ajiltanId,
           tuluvluguuniiID: mur.tuluvluguuniiID,
           ognoo: mur.ognoo || new Date(),
-          turul: "asuult", // Mark as question
+          turul: "asuult",
         };
 
         if (mur.baiguullagiinId || req.user?.baiguullagaId) {
@@ -64,7 +64,7 @@ router.post("/asuulgaAvya", tokenShalgakh, async (req, res, next) => {
 
     query.turul = "asuult";
 
-    console.log("Web query received:", query);
+    console.log("Fetch questions query:", query);
 
     const skip = (khuudasniiDugaar - 1) * khuudasniiKhemjee;
 
@@ -72,9 +72,10 @@ router.post("/asuulgaAvya", tokenShalgakh, async (req, res, next) => {
     const jagsaalt = await HabeaModel.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(khuudasniiKhemjee);
+      .limit(khuudasniiKhemjee)
+      .lean();
 
-    console.log("Found items:", jagsaalt.length);
+    console.log("Found questions:", jagsaalt.length);
 
     res.json({
       niitMur: total,
@@ -83,60 +84,22 @@ router.post("/asuulgaAvya", tokenShalgakh, async (req, res, next) => {
       jagsaalt,
     });
   } catch (err) {
-    console.error("Error fetching asuulga:", err);
+    console.error("Error fetching questions:", err);
     next(err);
-  }
-});
-
-router.post("/habeaAvyaFiltered", tokenShalgakh, async (req, res, next) => {
-  try {
-    const { ognoo } = req.body;
-
-    console.log("Mobile fetch request:", req.body);
-
-    const query = {
-      turul: "asuult",
-    };
-
-    if (ognoo && ognoo.$gte && ognoo.$lte) {
-      query.ognoo = {
-        $gte: new Date(ognoo.$gte),
-        $lte: new Date(ognoo.$lte),
-      };
-    }
-
-    console.log("Query:", query);
-
-    const data = await HabeaModel.find(query).sort({ createdAt: -1 }).lean();
-
-    console.log("Found items:", data.length);
-
-    return res.json({
-      jagsaalt: data.map((item) => ({
-        _id: item._id,
-        asuulga: item.asuult,
-        asuult: item.asuult,
-        ognoo: item.ognoo,
-        ajiltanId: item.ajiltanId,
-        tuluvluguuniiID: item.tuluvluguuniiID,
-        createdAt: item.createdAt,
-      })),
-      niitMur: data.length,
-    });
-  } catch (err) {
-    console.error("Error in habeaAvyaFiltered:", err);
-    return res.status(500).json({
-      error: "Server error",
-      message: err.message,
-    });
   }
 });
 
 router.post("/khabTuukhKhadgalya", tokenShalgakh, async (req, res, next) => {
   try {
-    const { asuulguud, ajiltniiId, ognoo } = req.body;
+    const { asuulguud, ajiltniiId, ognoo, gariinUseg } = req.body;
 
-    console.log("Received save request:", req.body);
+    console.log("Received save request:", {
+      hasAsuulguud: !!asuulguud,
+      asuulguudLength: asuulguud?.length,
+      ajiltniiId,
+      ognoo,
+      hasSignature: !!gariinUseg,
+    });
 
     if (!asuulguud || !Array.isArray(asuulguud) || asuulguud.length === 0) {
       return res.status(400).json({ error: "Asuulguud хоосон байна" });
@@ -146,31 +109,44 @@ router.post("/khabTuukhKhadgalya", tokenShalgakh, async (req, res, next) => {
       return res.status(400).json({ error: "Ajiltan ID шаардлагатай" });
     }
 
+    const dateToSave = ognoo ? new Date(ognoo) : new Date();
+    dateToSave.setHours(0, 0, 0, 0);
+
     const existingRecord = await HabeaModel.findOne({
       ajiltniiId,
-      ognoo: new Date(ognoo),
+      ognoo: {
+        $gte: dateToSave,
+        $lt: new Date(dateToSave.getTime() + 24 * 60 * 60 * 1000),
+      },
       turul: "khariult",
     });
 
     if (existingRecord) {
       existingRecord.asuulguud = asuulguud;
+      if (gariinUseg) {
+        existingRecord.gariinUseg = gariinUseg;
+      }
       existingRecord.updatedAt = new Date();
       await existingRecord.save();
-      console.log("Updated existing answer record");
+      console.log("Updated existing answer record:", existingRecord._id);
     } else {
-      await HabeaModel.create({
+      const newRecord = await HabeaModel.create({
         ajiltniiId,
-        ognoo: new Date(ognoo),
+        ognoo: dateToSave,
         asuulguud,
+        gariinUseg: gariinUseg || null,
         turul: "khariult",
       });
-      console.log("Created new answer record");
+      console.log("Created new answer record:", newRecord._id);
     }
 
     res.json("Amjilttai");
   } catch (error) {
     console.error("Error saving khabTuukh:", error);
-    next(error);
+    res.status(500).json({
+      error: "Server error",
+      message: error.message,
+    });
   }
 });
 
@@ -184,7 +160,7 @@ router.post("/khabTuukhAvya", tokenShalgakh, async (req, res, next) => {
 
     query.turul = "khariult";
 
-    console.log("Fetching khabTuukh with query:", query);
+    console.log("Fetching saved answers with query:", query);
 
     const skip = (khuudasniiDugaar - 1) * khuudasniiKhemjee;
 
@@ -192,9 +168,10 @@ router.post("/khabTuukhAvya", tokenShalgakh, async (req, res, next) => {
     const jagsaalt = await HabeaModel.find(query)
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(khuudasniiKhemjee);
+      .limit(khuudasniiKhemjee)
+      .lean();
 
-    console.log("Found answer records:", jagsaalt.length);
+    console.log("Found saved answers:", jagsaalt.length);
 
     res.json({
       niitMur: total,
@@ -203,7 +180,7 @@ router.post("/khabTuukhAvya", tokenShalgakh, async (req, res, next) => {
       jagsaalt,
     });
   } catch (err) {
-    console.error("Error fetching khabTuukh:", err);
+    console.error("Error fetching saved answers:", err);
     next(err);
   }
 });
