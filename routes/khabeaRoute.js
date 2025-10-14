@@ -3,7 +3,6 @@ const router = express.Router();
 const { tokenShalgakh } = require("zevback");
 const HabeaModel = require("../models/habea");
 
-// Save questions (from web)
 router.post(
   "/asuulgaOlnoorKhadgalya",
   tokenShalgakh,
@@ -43,7 +42,6 @@ router.post(
   }
 );
 
-// Delete question
 router.post("/asuulgaUstgay", tokenShalgakh, async (req, res, next) => {
   try {
     const { id } = req.body;
@@ -56,7 +54,6 @@ router.post("/asuulgaUstgay", tokenShalgakh, async (req, res, next) => {
   }
 });
 
-// Get questions for web
 router.post("/asuulgaAvya", tokenShalgakh, async (req, res, next) => {
   try {
     const {
@@ -65,7 +62,6 @@ router.post("/asuulgaAvya", tokenShalgakh, async (req, res, next) => {
       khuudasniiKhemjee = 20,
     } = req.body;
 
-    // Only fetch questions, not answers
     query.turul = "asuult";
 
     console.log("Web query received:", query);
@@ -92,7 +88,6 @@ router.post("/asuulgaAvya", tokenShalgakh, async (req, res, next) => {
   }
 });
 
-// Get questions for mobile
 router.post("/habeaAvyaFiltered", tokenShalgakh, async (req, res, next) => {
   try {
     const { ognoo } = req.body;
@@ -100,10 +95,9 @@ router.post("/habeaAvyaFiltered", tokenShalgakh, async (req, res, next) => {
     console.log("Mobile fetch request:", req.body);
 
     const query = {
-      turul: "asuult", // Only fetch questions
+      turul: "asuult",
     };
 
-    // Filter by date range if provided
     if (ognoo && ognoo.$gte && ognoo.$lte) {
       query.ognoo = {
         $gte: new Date(ognoo.$gte),
@@ -138,7 +132,6 @@ router.post("/habeaAvyaFiltered", tokenShalgakh, async (req, res, next) => {
   }
 });
 
-// Save answers (from mobile)
 router.post("/khabTuukhKhadgalya", tokenShalgakh, async (req, res, next) => {
   try {
     const { asuulguud, ajiltniiId, ognoo } = req.body;
@@ -153,7 +146,6 @@ router.post("/khabTuukhKhadgalya", tokenShalgakh, async (req, res, next) => {
       return res.status(400).json({ error: "Ajiltan ID шаардлагатай" });
     }
 
-    // Check if answer record exists for this date and ajiltan
     const existingRecord = await HabeaModel.findOne({
       ajiltniiId,
       ognoo: new Date(ognoo),
@@ -161,13 +153,11 @@ router.post("/khabTuukhKhadgalya", tokenShalgakh, async (req, res, next) => {
     });
 
     if (existingRecord) {
-      // Update existing answer record
       existingRecord.asuulguud = asuulguud;
       existingRecord.updatedAt = new Date();
       await existingRecord.save();
       console.log("Updated existing answer record");
     } else {
-      // Create new answer record
       await HabeaModel.create({
         ajiltniiId,
         ognoo: new Date(ognoo),
@@ -184,7 +174,6 @@ router.post("/khabTuukhKhadgalya", tokenShalgakh, async (req, res, next) => {
   }
 });
 
-// Get saved answers (from mobile)
 router.post("/khabTuukhAvya", tokenShalgakh, async (req, res, next) => {
   try {
     const {
@@ -193,7 +182,6 @@ router.post("/khabTuukhAvya", tokenShalgakh, async (req, res, next) => {
       khuudasniiKhemjee = 20,
     } = req.body;
 
-    // Only fetch answer records
     query.turul = "khariult";
 
     console.log("Fetching khabTuukh with query:", query);

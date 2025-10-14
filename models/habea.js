@@ -4,7 +4,7 @@ const habeaSchema = new mongoose.Schema(
   {
     asuult: {
       type: String,
-      required: false,  
+      required: false,
       trim: true,
     },
     ajiltanId: {
@@ -27,9 +27,10 @@ const habeaSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
-    // For storing answers
+
     ajiltniiId: String,
     asuulguud: Array,
+    gariinUseg: String,
     turul: {
       type: String,
       enum: ["asuult", "khariult"],
