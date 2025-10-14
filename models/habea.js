@@ -2,19 +2,24 @@ const mongoose = require("mongoose");
 
 const habeaSchema = new mongoose.Schema(
   {
-    tovchlol: {
+    asuult: {
       type: String,
       required: true,
       trim: true,
     },
-    ner: {
-      type: String,
+    baiguullagiinId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Baiguullaga",
       required: true,
-      trim: true,
     },
-    ontsgoiBolgoh: {
-      type: Boolean,
-      default: false,
+    salbariinId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Salbar",
+      required: true,
+    },
+    ognoo: {
+      type: Date,
+      default: Date.now,
     },
   },
   {
