@@ -17,6 +17,7 @@ router.post(
       const asuulguud = body.map((mur) => {
         if (!mur.baiguullagiinId) mur.baiguullagiinId = req.user?.baiguullagaId;
         if (!mur.salbariinId) mur.salbariinId = req.user?.salbarId;
+        if (!mur.ajiltanId) mur.ajiltanId = req.user?._id;
         return new HabeaModel(mur);
       });
 
@@ -34,7 +35,7 @@ router.post("/asuulgaUstgay", tokenShalgakh, async (req, res, next) => {
     const { id } = req.body;
     if (!id) return res.status(400).json({ error: "ID шаардлагатай" });
 
-    await HabeaModel.deleteMany({ _id: id });
+    await HabeaModel.deleteOne({ _id: id });
     res.json({ message: "Амжилттай устгагдлаа" });
   } catch (error) {
     next(error);
@@ -48,6 +49,14 @@ router.post("/asuulgaAvya", tokenShalgakh, async (req, res, next) => {
       khuudasniiDugaar = 1,
       khuudasniiKhemjee = 20,
     } = req.body;
+
+    if (!query.baiguullagiinId && req.user?.baiguullagaId) {
+      query.baiguullagiinId = req.user.baiguullagaId;
+    }
+    if (!query.salbariinId && req.user?.salbarId) {
+      query.salbariinId = req.user.salbarId;
+    }
+
     const skip = (khuudasniiDugaar - 1) * khuudasniiKhemjee;
 
     const total = await HabeaModel.countDocuments(query);
@@ -69,8 +78,56 @@ router.post("/asuulgaAvya", tokenShalgakh, async (req, res, next) => {
 
 router.get("/habeaAvya", tokenShalgakh, async (req, res, next) => {
   try {
-    const data = await HabeaModel.find().sort({ createdAt: -1 });
+    const query = {};
+
+    if (req.user?.baiguullagaId) {
+      query.baiguullagiinId = req.user.baiguullagaId;
+    }
+    if (req.user?.salbarId) {
+      query.salbariinId = req.user.salbarId;
+    }
+
+    const data = await HabeaModel.find(query).sort({ createdAt: -1 });
     return res.json(data);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post("/habeaAvyaFiltered", tokenShalgakh, async (req, res, next) => {
+  try {
+    const { ognoo, ajiltniiId } = req.body;
+
+    const query = {
+      baiguullagiinId: req.user?.baiguullagaId,
+      salbariinId: req.user?.salbarId,
+    };
+
+    if (ognoo && ognoo.$gte && ognoo.$lte) {
+      query.ognoo = ognoo;
+    }
+
+    if (ajiltniiId) {
+      query.ajiltanId = ajiltniiId;
+    }
+
+    const data = await HabeaModel.find(query)
+      .sort({ createdAt: -1 })
+      .populate("ajiltanId", "ner");
+
+    return res.json({
+      jagsaalt: data.map((item) => ({
+        _id: item._id,
+        asuulga: item.asuult,
+        asuult: item.asuult,
+        ognoo: item.ognoo,
+        ajiltanId: item.ajiltanId,
+        baiguullagiinId: item.baiguullagiinId,
+        salbariinId: item.salbariinId,
+        createdAt: item.createdAt,
+      })),
+      niitMur: data.length,
+    });
   } catch (err) {
     next(err);
   }
