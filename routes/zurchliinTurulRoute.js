@@ -1,116 +1,99 @@
 const express = require("express");
 const router = express.Router();
 const { tokenShalgakh } = require("zevback");
-const HabeaModel = require("../models/habea");
-const AjiltanModel = require("../models/ajiltan");
+
+const ZurchliinTurulModel = require("../models/zurchliinTurul");
 
 router.post(
-  "/asuulgaOlnoorKhadgalya",
+  "/zurchliinTurulShineerBurtgeh",
   tokenShalgakh,
   async (req, res, next) => {
     try {
-      if (!Array.isArray(req.body) || req.body.length === 0)
-        return res.status(400).json({ message: "Асуумж хоосон байна" });
+      const dawhardal = await ZurchliinTurulModel.find({
+        tovchlol: req.body?.tovchlol,
+        tovchNer: req.body?.tovchNer,
+        ner: req.body?.ner,
+      });
 
-      // Get ajiltan info from token
-      const ajiltan = await AjiltanModel.findById(req.ajiltanId);
-
-      if (!ajiltan) {
-        return res.status(401).json({ message: "Хэрэглэгч олдсонгүй" });
+      if (dawhardal?.length > 0) {
+        return res.status(400).json({ message: "Давхардаж байна" });
       }
 
-      const baiguullagiinId = ajiltan.duureg;
-      const salbariinId = ajiltan.tasag || ajiltan.kheltes;
-
-      if (!baiguullagiinId || !salbariinId) {
-        return res.status(400).json({
-          message: "Дүүрэг эсвэл тасаг/хэлтсийн мэдээлэл олдсонгүй",
-        });
-      }
-
-      const dataToInsert = req.body.map((item) => ({
-        asuult: item.asuult,
-        baiguullagiinId: baiguullagiinId,
-        salbariinId: salbariinId,
-        ognoo: item.ognoo || new Date(),
-      }));
-
-      await HabeaModel.insertMany(dataToInsert);
-      res.json({ message: "Амжилттай бүртгэгдлээ" });
+      var newData = new ZurchliinTurulModel(req.body);
+      await newData.save();
+      return res.json({
+        message: "Амжилттай үүслээ",
+      });
     } catch (err) {
-      console.error("Error in asuulgaOlnoorKhadgalya:", err);
       next(err);
     }
   }
 );
 
-router.post("/asuulgaUstgay", tokenShalgakh, async (req, res, next) => {
+router.post("/zurchliinTurulZasah", tokenShalgakh, async (req, res, next) => {
   try {
-    const { id } = req.body;
-    if (!id) return res.status(400).json({ message: "ID байхгүй байна" });
+    const oldson = await ZurchliinTurulModel.findById(req.body?._id);
 
-    const deleted = await HabeaModel.findByIdAndDelete(id);
-
-    if (!deleted) {
-      return res.status(404).json({ message: "Асуумж олдсонгүй" });
+    if (!oldson) {
+      return res.status(400).json({ message: "Зөрчлийн төрөл олдсонгүй." });
     }
 
-    res.json({ message: "Амжилттай устгалаа" });
-  } catch (err) {
-    next(err);
-  }
-});
+    console.log(req.body);
+    await ZurchliinTurulModel.updateOne(
+      {
+        _id: req.body?._id,
+      },
+      {
+        $set: {
+          tovchlol: req.body?.tovchlol,
+          tovchNer: req.body?.tovchNer,
+          ner: req.body?.ner,
+        },
+      }
+    );
 
-router.post("/asuulgaAvya", tokenShalgakh, async (req, res, next) => {
-  try {
-    const {
-      query = {},
-      khuudasniiDugaar = 1,
-      khuudasniiKhemjee = 20,
-    } = req.body;
-    const skip = (khuudasniiDugaar - 1) * khuudasniiKhemjee;
-
-    const ajiltan = await AjiltanModel.findById(req.ajiltanId);
-
-    if (ajiltan && ajiltan.erkh !== "Super admin") {
-      query.baiguullagiinId = ajiltan.duureg;
-      query.salbariinId = ajiltan.tasag || ajiltan.kheltes;
-    }
-
-    const total = await HabeaModel.countDocuments(query);
-    const jagsaalt = await HabeaModel.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(khuudasniiKhemjee);
-
-    res.json({
-      niitMur: total,
-      khuudasniiDugaar,
-      khuudasniiKhemjee,
-      jagsaalt,
+    return res.json({
+      message: "Амжилттай хадгалагдлаа",
     });
   } catch (err) {
     next(err);
   }
 });
 
-router.get("/habeaAvya", tokenShalgakh, async (req, res, next) => {
+router.post(
+  "/zurchliinTurulOntsgoiBolgoh",
+  tokenShalgakh,
+  async (req, res, next) => {
+    try {
+      const oldson = await ZurchliinTurulModel.findById(req.body?._id);
+
+      if (!oldson) {
+        return res.status(400).json({ message: "Зөрчлийн төрөл олдсонгүй." });
+      }
+
+      await ZurchliinTurulModel.updateOne(
+        {
+          _id: req.body?._id,
+        },
+        {
+          $set: {
+            ontsgoiBolgoh: !oldson.ontsgoiBolgoh,
+          },
+        }
+      );
+
+      return res.json({
+        message: "Амжилттай хадгалагдлаа",
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+router.get("/zurchliinTurulAvya", tokenShalgakh, async (req, res, next) => {
   try {
-    const ajiltan = await AjiltanModel.findById(req.ajiltanId);
-
-    if (!ajiltan) {
-      return res.status(401).json({ message: "Хэрэглэгч олдсонгүй" });
-    }
-
-    let query = {};
-
-    if (ajiltan.erkh !== "Super admin") {
-      query.baiguullagiinId = ajiltan.duureg;
-      query.salbariinId = ajiltan.tasag || ajiltan.kheltes;
-    }
-
-    const data = await HabeaModel.find(query).sort({ createdAt: -1 });
-
+    var data = await ZurchliinTurulModel.find().sort({ ner: 1 });
     return res.json(data);
   } catch (err) {
     next(err);
