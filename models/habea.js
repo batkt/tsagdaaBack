@@ -8,8 +8,7 @@ const habeaSchema = new mongoose.Schema(
       trim: true,
     },
     ajiltanId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Ajiltan",
+      type: String,
       required: true,
     },
     tuluvluguuniiID: {
@@ -17,14 +16,12 @@ const habeaSchema = new mongoose.Schema(
       required: true,
     },
     baiguullagiinId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Baiguullaga",
-      required: false,  
+      type: String,
+      required: false,
     },
     salbariinId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "Salbar",
-      required: false,  
+      type: String,
+      required: false,
     },
     ognoo: {
       type: Date,

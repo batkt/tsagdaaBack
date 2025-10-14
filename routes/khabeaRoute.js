@@ -30,10 +30,12 @@ router.post(
           newItem.salbariinId = mur.salbariinId || req.user?.salbarId;
         }
 
-        return new HabeaModel(newItem);
+        console.log("Saving item:", newItem);
+        return newItem;
       });
 
-      await HabeaModel.insertMany(asuulguud);
+      const savedData = await HabeaModel.insertMany(asuulguud);
+      console.log("Saved successfully:", savedData);
       res.json(true);
     } catch (error) {
       console.error("Error saving asuulga:", error);
@@ -41,6 +43,42 @@ router.post(
     }
   }
 );
+
+router.post("/asuulgaAvya", tokenShalgakh, async (req, res, next) => {
+  try {
+    const {
+      query = {},
+      khuudasniiDugaar = 1,
+      khuudasniiKhemjee = 20,
+    } = req.body;
+
+    console.log("Query received:", query);
+    console.log("Pagination:", { khuudasniiDugaar, khuudasniiKhemjee });
+
+    const skip = (khuudasniiDugaar - 1) * khuudasniiKhemjee;
+
+    const total = await HabeaModel.countDocuments(query);
+    console.log("Total count:", total);
+
+    const jagsaalt = await HabeaModel.find(query)
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(khuudasniiKhemjee);
+
+    console.log("Found items:", jagsaalt.length);
+    console.log("First item:", jagsaalt[0]);
+
+    res.json({
+      niitMur: total,
+      khuudasniiDugaar,
+      khuudasniiKhemjee,
+      jagsaalt,
+    });
+  } catch (err) {
+    console.error("Error fetching asuulga:", err);
+    next(err);
+  }
+});
 
 router.post("/asuulgaUstgay", tokenShalgakh, async (req, res, next) => {
   try {
@@ -51,33 +89,6 @@ router.post("/asuulgaUstgay", tokenShalgakh, async (req, res, next) => {
     res.json(true);
   } catch (error) {
     next(error);
-  }
-});
-
-router.post("/asuulgaAvya", tokenShalgakh, async (req, res, next) => {
-  try {
-    const {
-      query = {},
-      khuudasniiDugaar = 1,
-      khuudasniiKhemjee = 20,
-    } = req.body;
-
-    const skip = (khuudasniiDugaar - 1) * khuudasniiKhemjee;
-
-    const total = await HabeaModel.countDocuments(query);
-    const jagsaalt = await HabeaModel.find(query)
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(khuudasniiKhemjee);
-
-    res.json({
-      niitMur: total,
-      khuudasniiDugaar,
-      khuudasniiKhemjee,
-      jagsaalt,
-    });
-  } catch (err) {
-    next(err);
   }
 });
 
