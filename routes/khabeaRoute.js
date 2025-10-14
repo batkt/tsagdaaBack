@@ -12,7 +12,6 @@ router.post(
       if (!Array.isArray(req.body) || req.body.length === 0)
         return res.status(400).json({ aldaa: "Асуумж хоосон байна" });
 
-
       const ajiltan = await AjiltanModel.findById(req.ajiltanId);
 
       if (!ajiltan) {
@@ -91,6 +90,27 @@ router.post("/asuulgaAvya", tokenShalgakh, async (req, res, next) => {
       khuudasniiKhemjee,
       jagsaalt,
     });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get("/habeaAvya", tokenShalgakh, async (req, res, next) => {
+  try {
+    const ajiltan = await AjiltanModel.findById(req.ajiltanId);
+
+    let query = {};
+
+    if (ajiltan && ajiltan.erkh !== "Super admin") {
+      query.baiguullagiinId = ajiltan.duureg;
+      query.salbariinId = ajiltan.tasag || ajiltan.kheltes;
+    }
+
+    const habeaList = await HabeaModel.find(query)
+      .sort({ createdAt: -1 })
+      .limit(1000);
+
+    res.json(habeaList);
   } catch (err) {
     next(err);
   }
