@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { tokenShalgakh } = require("zevback");
 const HabeaModel = require("../models/habea");
+const AjiltanModel = require("../models/ajiltan");
 
 router.post(
   "/asuulgaOlnoorKhadgalya",
@@ -9,11 +10,43 @@ router.post(
   async (req, res, next) => {
     try {
       if (!Array.isArray(req.body) || req.body.length === 0)
-        return res.status(400).json({ message: "Асуумж хоосон байна" });
+        return res.status(400).json({ aldaa: "Асуумж хоосон байна" });
 
-      await HabeaModel.insertMany(req.body);
+
+      const ajiltan = await AjiltanModel.findById(req.ajiltanId);
+
+      if (!ajiltan) {
+        return res.status(401).json({ aldaa: "Хэрэглэгч олдсонгүй" });
+      }
+
+      const baiguullagiinId = ajiltan.duureg;
+      const salbariinId = ajiltan.tasag || ajiltan.kheltes;
+
+      if (!baiguullagiinId || !salbariinId) {
+        return res.status(400).json({
+          aldaa: "Дүүрэг эсвэл тасаг/хэлтсийн мэдээлэл олдсонгүй",
+          debug: {
+            ajiltanId: ajiltan._id,
+            duureg: ajiltan.duureg,
+            tasag: ajiltan.tasag,
+            kheltes: ajiltan.kheltes,
+          },
+        });
+      }
+
+      const dataToInsert = req.body.map((item) => ({
+        asuult: item.asuult,
+        baiguullagiinId: baiguullagiinId,
+        salbariinId: salbariinId,
+        ognoo: item.ognoo || new Date(),
+      }));
+
+      console.log("Inserting HABEA data:", dataToInsert);
+
+      await HabeaModel.insertMany(dataToInsert);
       res.json({ message: "Амжилттай бүртгэгдлээ" });
     } catch (err) {
+      console.error("Error in asuulgaOlnoorKhadgalya:", err);
       next(err);
     }
   }
@@ -22,7 +55,7 @@ router.post(
 router.post("/asuulgaUstgay", tokenShalgakh, async (req, res, next) => {
   try {
     const { id } = req.body;
-    if (!id) return res.status(400).json({ message: "ID байхгүй байна" });
+    if (!id) return res.status(400).json({ aldaa: "ID байхгүй байна" });
 
     await HabeaModel.findByIdAndDelete(id);
     res.json({ message: "Амжилттай устгалаа" });
@@ -39,6 +72,12 @@ router.post("/asuulgaAvya", tokenShalgakh, async (req, res, next) => {
       khuudasniiKhemjee = 20,
     } = req.body;
     const skip = (khuudasniiDugaar - 1) * khuudasniiKhemjee;
+
+    const ajiltan = await AjiltanModel.findById(req.ajiltanId);
+    if (ajiltan && ajiltan.erkh !== "Super admin") {
+      query.baiguullagiinId = ajiltan.duureg;
+      query.salbariinId = ajiltan.tasag || ajiltan.kheltes;
+    }
 
     const total = await HabeaModel.countDocuments(query);
     const jagsaalt = await HabeaModel.find(query)

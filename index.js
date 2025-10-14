@@ -75,7 +75,7 @@ async function broadcastActiveUserCount() {
 
 cron.schedule("0 4 * * *", async () => {
   console.log("🕓 Ulaanbaatar-ийн 4 цагт ажиллав (UTC дээр 20 цаг)");
-  await redis.del("online-users"); // Бүх онлайн хэрэглэгчдийг цэвэрлэнэ
+  await redis.del("online-users"); 
 });
 
 io.on("connection", async (socket) => {
