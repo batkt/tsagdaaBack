@@ -13,7 +13,7 @@ const habeaSchema = new mongoose.Schema(
     },
     tuluvluguuniiID: {
       type: String,
-      required: true,
+      required: false,
     },
     baiguullagiinId: {
       type: String,

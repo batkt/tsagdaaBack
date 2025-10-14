@@ -103,25 +103,24 @@ router.get("/habeaAvya", tokenShalgakh, async (req, res, next) => {
 
 router.post("/habeaAvyaFiltered", tokenShalgakh, async (req, res, next) => {
   try {
-    const { ognoo, ajiltniiId, tuluvluguuniiID } = req.body;
+    const { ognoo } = req.body;
+
+    console.log("Mobile fetch request:", { ognoo });
 
     const query = {};
 
-    if (tuluvluguuniiID) {
-      query.tuluvluguuniiID = tuluvluguuniiID;
-    }
-
     if (ognoo && ognoo.$gte && ognoo.$lte) {
-      query.ognoo = ognoo;
+      query.ognoo = {
+        $gte: new Date(ognoo.$gte),
+        $lte: new Date(ognoo.$lte),
+      };
     }
 
-    if (ajiltniiId) {
-      query.ajiltanId = ajiltniiId;
-    }
+    console.log("Query:", query);
 
-    const data = await HabeaModel.find(query)
-      .sort({ createdAt: -1 })
-      .populate("ajiltanId", "ner");
+    const data = await HabeaModel.find(query).sort({ createdAt: -1 });
+
+    console.log("Found items:", data.length);
 
     return res.json({
       jagsaalt: data.map((item) => ({
@@ -136,6 +135,7 @@ router.post("/habeaAvyaFiltered", tokenShalgakh, async (req, res, next) => {
       niitMur: data.length,
     });
   } catch (err) {
+    console.error("Error in habeaAvyaFiltered:", err);
     next(err);
   }
 });
