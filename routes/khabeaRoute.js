@@ -9,15 +9,19 @@ router.post(
   tokenShalgakh,
   async (req, res, next) => {
     try {
-      var asuulguud = [];
-      var body = req.body;
+      const body = req.body;
 
-      if (Array.isArray(body)) {
-        body.forEach((mur) => asuulguud.push(new HabeaModel(mur)));
-      }
+      if (!Array.isArray(body) || body.length === 0)
+        return res.status(400).json({ error: "Асуулга хоосон байна" });
+
+      const asuulguud = body.map((mur) => {
+        if (!mur.baiguullagiinId) mur.baiguullagiinId = req.user?.baiguullagaId;
+        if (!mur.salbariinId) mur.salbariinId = req.user?.salbarId;
+        return new HabeaModel(mur);
+      });
 
       await HabeaModel.insertMany(asuulguud);
-      res.send("Amjilttai");
+      res.json({ message: "Амжилттай хадгалагдлаа" });
     } catch (error) {
       console.error("Error saving asuulga:", error);
       next(error);
@@ -27,10 +31,11 @@ router.post(
 
 router.post("/asuulgaUstgay", tokenShalgakh, async (req, res, next) => {
   try {
-    await HabeaModel.deleteMany({
-      _id: req.body.id,
-    });
-    res.send("Amjilttai");
+    const { id } = req.body;
+    if (!id) return res.status(400).json({ error: "ID шаардлагатай" });
+
+    await HabeaModel.deleteMany({ _id: id });
+    res.json({ message: "Амжилттай устгагдлаа" });
   } catch (error) {
     next(error);
   }
