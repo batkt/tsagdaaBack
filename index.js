@@ -17,7 +17,9 @@ const hariyaNegjRoute = require("./routes/hariyaNegjRoute");
 const medegdelRoute = require("./routes/medegdelRoute");
 const zurchliinTurulRoute = require("./routes/zurchliinTurulRoute");
 const zurchilRoute = require("./routes/zurchilRoute");
-const dashboardRoute = require('./routes/dashboardRoute');
+const habeaRoute = require("./routes/khabeaRoute");
+
+const dashboardRoute = require("./routes/dashboardRoute");
 const aldaaBarigch = require("./middleware/aldaaBarigch");
 const {
   initializeNotificationService,
@@ -61,6 +63,7 @@ app.use(medegdelRoute);
 app.use(zurchliinTurulRoute);
 app.use(zurchilRoute);
 app.use(dashboardRoute);
+app.use(habeaRoute);
 zuragPack(app);
 
 app.use(aldaaBarigch);
