@@ -100,7 +100,36 @@ router.get("/habeaAvya", tokenShalgakh, async (req, res, next) => {
     next(err);
   }
 });
+router.post("/khabTuukhKhadgalya", tokenShalgakh, async (req, res, next) => {
+  try {
+    const { asuulguud, ajiltniiId, ognoo } = req.body;
 
+    console.log("Received save request:", req.body);
+
+    const existingRecord = await HabeaModel.findOne({
+      ajiltniiId,
+      ognoo: new Date(ognoo),
+      turul: "khariult",
+    });
+
+    if (existingRecord) {
+      existingRecord.asuulguud = asuulguud;
+      await existingRecord.save();
+    } else {
+      await HabeaModel.create({
+        ajiltniiId,
+        ognoo: new Date(ognoo),
+        asuulguud,
+        turul: "khariult",
+      });
+    }
+
+    res.json("Amjilttai");
+  } catch (error) {
+    console.error("Error saving khabTuukh:", error);
+    next(error);
+  }
+});
 router.post("/habeaAvyaFiltered", tokenShalgakh, async (req, res, next) => {
   try {
     const { ognoo } = req.body;

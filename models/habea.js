@@ -1,15 +1,13 @@
-const mongoose = require("mongoose");
-
 const habeaSchema = new mongoose.Schema(
   {
     asuult: {
       type: String,
-      required: true,
+      required: false,
       trim: true,
     },
     ajiltanId: {
       type: String,
-      required: true,
+      required: false,
     },
     tuluvluguuniiID: {
       type: String,
@@ -27,11 +25,17 @@ const habeaSchema = new mongoose.Schema(
       type: Date,
       default: Date.now,
     },
+
+    ajiltniiId: String,
+    asuulguud: Array,
+    turul: {
+      type: String,
+      enum: ["asuult", "khariult"],
+      default: "asuult",
+    },
   },
   {
     timestamps: true,
     collection: "habea",
   }
 );
-
-module.exports = mongoose.model("Habea", habeaSchema);
