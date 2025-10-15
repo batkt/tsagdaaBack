@@ -114,15 +114,6 @@ router.post(
     try {
       const { nevtersenAjiltniiToken, id: tuluvluguuId } = req.body;
 
-      // await Tuluvluguu.updateMany(
-      //   { idevkhiteiEsekh: true },
-      //   { idevkhiteiEsekh: false }
-      // );
-      // await Tuluvluguu.findOneAndUpdate(
-      //   { _id: tuluvluguuId },
-      //   { idevkhiteiEsekh: true }
-      // );
-
       const result = await IdevkhiteiTuluvluguuModel.updateOne(
         { ajiltanId: nevtersenAjiltniiToken.id },
         {
