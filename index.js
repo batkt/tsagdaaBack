@@ -36,7 +36,6 @@ mongoose
   })
   .then((result) => {
     console.log("xolbogdson 123");
-    updateTuluvluguuTuluv();
     server.listen(8084);
   })
   .catch((err) => console.log(err));
