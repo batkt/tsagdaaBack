@@ -110,7 +110,6 @@ router.post(
   async (req, res, next) => {
     try {
       const { nevtersenAjiltniiToken, id: tuluvluguuId } = req.body;
-      const all = await IdevkhiteiTuluvluguuModel.find({ ajiltanId: nevtersenAjiltniiToken.id });
       const result = await IdevkhiteiTuluvluguuModel.updateOne(
         { ajiltanId: nevtersenAjiltniiToken.id },
         {
