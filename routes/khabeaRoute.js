@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { tokenShalgakh } = require("zevback");
 const HabeaModel = require("../models/habea");
+const AjiltanModel = require("../models/ajiltan");
 
 router.post(
   "/asuulgaOlnoorKhadgalya",
@@ -173,11 +174,42 @@ router.post("/khabTuukhAvya", tokenShalgakh, async (req, res, next) => {
 
     console.log("Found saved answers:", jagsaalt.length);
 
+    // Populate user information
+    const jagsaaltWithUserInfo = await Promise.all(
+      jagsaalt.map(async (item) => {
+        if (item.ajiltniiId) {
+          try {
+            const ajiltan = await AjiltanModel.findById(item.ajiltniiId)
+              .select("ner ovog mail")
+              .lean();
+
+            return {
+              ...item,
+              ajiltanInfo: ajiltan
+                ? {
+                    ner: ajiltan.ner,
+                    ovog: ajiltan.ovog,
+                    mail: ajiltan.mail,
+                    fullName: `${ajiltan.ovog || ""} ${
+                      ajiltan.ner || ""
+                    }`.trim(),
+                  }
+                : null,
+            };
+          } catch (err) {
+            console.error("Error fetching ajiltan:", err);
+            return { ...item, ajiltanInfo: null };
+          }
+        }
+        return { ...item, ajiltanInfo: null };
+      })
+    );
+
     res.json({
       niitMur: total,
       khuudasniiDugaar,
       khuudasniiKhemjee,
-      jagsaalt,
+      jagsaalt: jagsaaltWithUserInfo,
     });
   } catch (err) {
     console.error("Error fetching saved answers:", err);
