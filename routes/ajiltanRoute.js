@@ -190,7 +190,7 @@ router.post("/zogsokhTsegAvya", tokenShalgakh, async (req, res, next) => {
   try {
     var ObjectId = require("mongodb").ObjectId;
     const now = new Date();
-    const ajiltniiTseguud = await TuluvluguuModel.aggregate([
+    const ajiltniiTseguud = await Tuluvluguu.aggregate([
       {
         $match: {
           tuluv: "Эхэлсэн",
