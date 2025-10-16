@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
 mongoose.pluralize(null);
@@ -22,12 +22,16 @@ const tuluvluguuSchema = new Schema(
         duusakhOgnoo: Date,
       },
     ],
-    idevkhiteiEsekh: Boolean,
+    idevkhiteiEsekh: { type: Boolean, default: true },
+    tuluv: { type: String, default: "Эхэлсэн" },
   },
   {
     timestamps: true,
   }
 );
 
-const TuluvluguuModel = mongoose.model('tuluvluguu', tuluvluguuSchema);
+tuluvluguuSchema.index({ tuluv: 1 });
+tuluvluguuSchema.index({ tuluv: 1, ekhlekhOgnoo: 1, duusakhOgnoo: 1 });
+
+const TuluvluguuModel = mongoose.model("tuluvluguu", tuluvluguuSchema);
 module.exports = TuluvluguuModel;

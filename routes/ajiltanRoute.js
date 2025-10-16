@@ -8,10 +8,8 @@ const {
   tsegGaraarBurtgeh,
   ajiltanGaraarBurtgeh,
 } = require("../controller/ajiltanController");
-const excel = require("exceljs");
 const { crud, UstsanBarimt, tokenShalgakh, khuudaslalt } = require("zevback");
 const multer = require("multer");
-const mimetype = require("mime");
 const storage = multer.memoryStorage();
 const Ajiltan = require("../models/ajiltan");
 const Tsol = require("../models/tsol");
@@ -24,6 +22,7 @@ const ZurchliinTurul = require("../models/zurchliinTurul");
 const jwt = require("jsonwebtoken");
 const fs = require("fs");
 const Tseg = require("../models/tseg");
+const HariyaNegjModal = require("../models/hariyaNegj");
 const IdevkhiteiTuluvluguuModel = require("../models/idevkhiteiTuluvluguu");
 const filter = (req, file, cb) => {
   if (
@@ -108,7 +107,7 @@ router.post("/nuutsUgSoliyo/:id", tokenShalgakh, async (req, res, next) => {
 });
 
 router.post(
-  "/tuluvluguuIdevkhuuljye",
+  "/tuluvluguuIdevkhjuulye",
   tokenShalgakh,
   async (req, res, next) => {
     try {
@@ -131,6 +130,7 @@ router.post(
     }
   }
 );
+
 router.get(
   "/idevkhiteiTuluvluguuAvya",
   tokenShalgakh,
@@ -194,17 +194,73 @@ router.post("/saveFCMToken", tokenShalgakh, async (req, res, next) => {
 
 router.post("/zogsokhTsegAvya", tokenShalgakh, async (req, res, next) => {
   try {
-    var idevkhiteiTuluvluguu = await Tuluvluguu.findOne({
-      idevkhiteiEsekh: true,
-    });
-    console.log("idevkhiteiTuluvluguu", idevkhiteiTuluvluguu);
     var ObjectId = require("mongodb").ObjectId;
-    console.log("idevkhiteiTuluvluguu", req.body.ajiltniiId);
-    var tseg = await Tseg.findOne({
-      tuluvluguuniiId: idevkhiteiTuluvluguu._id,
-      "ajiltnuud._id": new ObjectId(req.body.nevtersenAjiltniiToken.id),
-    });
-    res.send(tseg);
+    const now = new Date();
+    const ajiltniiTseguud = await TuluvluguuModel.aggregate([
+      {
+        $match: {
+          tuluv: "Эхэлсэн",
+          ekhlekhOgnoo: { $lte: now },
+          duusakhOgnoo: { $gte: now },
+        },
+      },
+      {
+        $addFields: {
+          _idString: { $toString: "$_id" },
+        },
+      },
+      {
+        $lookup: {
+          from: "tseg",
+          localField: "_idString",
+          foreignField: "tuluvluguuniiId",
+          as: "tsegData",
+        },
+      },
+      {
+        $unwind: {
+          path: "$tsegData",
+          preserveNullAndEmptyArrays: false,
+        },
+      },
+      {
+        $unwind: {
+          path: "$tsegData.ajiltnuud",
+          preserveNullAndEmptyArrays: false,
+        },
+      },
+      {
+        $match: {
+          "tsegData.ajiltnuud._id": new ObjectId(
+            req.body.nevtersenAjiltniiToken.id
+          ),
+        },
+      },
+      {
+        $replaceRoot: {
+          newRoot: {
+            $mergeObjects: [
+              "$tsegData", // Tseg-ийн бүх талбарууд
+              {
+                tuluvluguuniiNer: "$ner", // Төлөвлөгөөний нэр нэмэх
+                tuluvluguuniiTurul: "$turul", // Төлөвлөгөөний төрөл нэмэх
+              },
+            ],
+          },
+        },
+      },
+      {
+        $sort: {
+          "ajiltnuud.khuvaariinEkhlekhOgnoo": 1,
+        },
+      },
+    ]);
+
+    if (ajiltniiTseguud?.length > 0) {
+      return res.send(ajiltniiTseguud[0]);
+    }
+
+    res.send(null);
   } catch (error) {
     next(error);
   }
@@ -216,21 +272,71 @@ router.get(
   async (req, res, next) => {
     try {
       var body = req.query;
-      if (!!body?.query) body.query = JSON.parse(body.query);
+      let buleg = "Улс";
+      let inputEkhlekhOgnoo = undefined,
+        inputDuusakhOgnoo = undefined;
+      if (!!body?.query) {
+        const query = JSON.parse(body.query);
+        const { startDate, endDate, buleg: hariyaNegjBuleg, ...other } = query;
+        buleg = hariyaNegjBuleg;
+        if (startDate) inputEkhlekhOgnoo = new Date(startDate);
+        if (endDate) inputDuusakhOgnoo = new Date(endDate);
+        body.query = other;
+      }
+
       if (!!body?.order) body.order = JSON.parse(body.order);
       if (!!body?.khuudasniiDugaar)
         body.khuudasniiDugaar = Number(body.khuudasniiDugaar);
       if (!!body?.khuudasniiKhemjee)
         body.khuudasniiKhemjee = Number(body.khuudasniiKhemjee);
 
-      var idevkhiteiTuluvluguu = await Tuluvluguu.findOne({
-        idevkhiteiEsekh: true,
+      var idevkhiteiTuluvluguunuud = await Tuluvluguu.find({
+        tuluv: "Эхэлсэн",
       });
       var ObjectId = require("mongodb").ObjectId;
+
+      let tsegMatchQuery = [];
+      if (inputEkhlekhOgnoo && inputDuusakhOgnoo) {
+        tsegMatchQuery.push({
+          $match: {
+            $or: [
+              {
+                "ajiltnuud.khuvaariinEkhlekhOgnoo": {
+                  $gte: inputEkhlekhOgnoo,
+                  $lt: inputDuusakhOgnoo,
+                },
+              },
+              {
+                "ajiltnuud.khuvaariinDuusakhOgnoo": {
+                  $gt: inputEkhlekhOgnoo,
+                  $lte: inputDuusakhOgnoo,
+                },
+              },
+              {
+                $and: [
+                  {
+                    "ajiltnuud.khuvaariinEkhlekhOgnoo": {
+                      $lte: inputEkhlekhOgnoo,
+                    },
+                  },
+                  {
+                    "ajiltnuud.khuvaariinDuusakhOgnoo": {
+                      $gte: inputDuusakhOgnoo,
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+        });
+      }
+
       var ajiltniiIdnuud = await Tseg.aggregate([
         {
           $match: {
-            tuluvluguuniiId: idevkhiteiTuluvluguu._id.toString(),
+            tuluvluguuniiId: {
+              $in: idevkhiteiTuluvluguunuud?.map((item) => item._id.toString()),
+            },
             "ajiltnuud.0": {
               $exists: true,
             },
@@ -239,26 +345,39 @@ router.get(
         {
           $unwind: "$ajiltnuud",
         },
+        ...tsegMatchQuery,
+        {
+          $group: {
+            _id: "$ajiltnuud._id", // Давхардал арилгах
+          },
+        },
         {
           $project: {
-            id: {
-              $toString: "$ajiltnuud._id",
-            },
+            _id: 0,
+            id: { $toString: "$_id" },
           },
         },
       ]);
-      console.log("ajiltniiIdnuud", ajiltniiIdnuud);
+
+      let hariyaNegjIdnuud = [];
+      if (buleg && buleg !== "Улс") {
+        const hariyaNegjuud = await HariyaNegjModal.find({
+          buleg: buleg,
+        });
+        hariyaNegjIdnuud = hariyaNegjuud?.map((it) => it._id?.toString());
+      }
+
       var idnuud = [];
       if (ajiltniiIdnuud && ajiltniiIdnuud.length > 0) {
         ajiltniiIdnuud.forEach((x) => idnuud.push(ObjectId(x.id)));
       }
-      console.log("idnuud", idnuud);
+      // console.log("idnuud", idnuud);
 
       if (body?.query) {
         body.query["_id"] = {
           $nin: idnuud,
         };
-      } else
+      } else {
         body = {
           query: {
             _id: {
@@ -266,6 +385,14 @@ router.get(
             },
           },
         };
+      }
+
+      if (hariyaNegjIdnuud?.length > 0) {
+        body.query["duureg"] = {
+          $in: hariyaNegjIdnuud,
+        };
+      }
+
       khuudaslalt(Ajiltan, body)
         .then((result) => {
           res.send(result);
