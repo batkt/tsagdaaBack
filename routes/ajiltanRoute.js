@@ -60,7 +60,7 @@ router.get("/ajiltanIdgaarAvya/:id", async (req, res, next) => {
 });
 router.get("/ajiltanZagvarAvya", ajiltanZagvarAvya);
 router.post("/ajiltanGaraarBurtgeh", ajiltanGaraarBurtgeh);
-router.post("/ajiltanTatya", uploadFile.single("file"), ajiltanTatya);
+router.post("/ajiltanTatya", tokenShalgakh, uploadFile.single("file"), ajiltanTatya);
 
 router.get("/tsegZagvarAvya", tsegZagvarAvya);
 router.post("/tsegTatya", uploadFile.single("file"), tsegTatya);
@@ -112,7 +112,8 @@ router.post(
   async (req, res, next) => {
     try {
       const { nevtersenAjiltniiToken, id: tuluvluguuId } = req.body;
-
+      const all = await IdevkhiteiTuluvluguuModel.find({ ajiltanId: nevtersenAjiltniiToken.id });
+      console.log("all", all)
       const result = await IdevkhiteiTuluvluguuModel.updateOne(
         { ajiltanId: nevtersenAjiltniiToken.id },
         {
@@ -137,15 +138,13 @@ router.get(
   async (req, res, next) => {
     try {
       const { nevtersenAjiltniiToken } = req.body;
-      // var a = await Tuluvluguu.findOne({ idevkhiteiEsekh: true });
-      const activePlan = await IdevkhiteiTuluvluguuModel.findOne({
-        ajitanId: nevtersenAjiltniiToken.id,
-      });
+      const activePlan = await IdevkhiteiTuluvluguuModel.findOne({ ajiltanId: nevtersenAjiltniiToken.id })
 
       if (!activePlan) {
         return res.send(undefined);
       }
       var b = await Tuluvluguu.findById(activePlan?.tuluvluguuID);
+      console.log("WTF ", b)
       res.send(b);
     } catch (err) {
       next(err);
