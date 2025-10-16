@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const { tokenShalgakh } = require("zevback");
 const HabeaModel = require("../models/habea");
+const AjiltanModel = require("../models/ajiltan");
 
 router.post(
   "/asuulgaOlnoorKhadgalya",
@@ -64,8 +65,6 @@ router.post("/asuulgaAvya", tokenShalgakh, async (req, res, next) => {
 
     query.turul = "asuult";
 
-    console.log("Fetch questions query:", query);
-
     const skip = (khuudasniiDugaar - 1) * khuudasniiKhemjee;
 
     const total = await HabeaModel.countDocuments(query);
@@ -75,8 +74,6 @@ router.post("/asuulgaAvya", tokenShalgakh, async (req, res, next) => {
       .limit(khuudasniiKhemjee)
       .lean();
 
-    console.log("Found questions:", jagsaalt.length);
-
     res.json({
       niitMur: total,
       khuudasniiDugaar,
@@ -85,6 +82,78 @@ router.post("/asuulgaAvya", tokenShalgakh, async (req, res, next) => {
     });
   } catch (err) {
     console.error("Error fetching questions:", err);
+    next(err);
+  }
+});
+
+router.post("/khabAsuulgaAvya", tokenShalgakh, async (req, res, next) => {
+  try {
+    const { ajiltniiId, ognoo } = req.body;
+
+    if (!ajiltniiId) {
+      return res.status(400).json({ error: "Ajiltan ID шаардлагатай" });
+    }
+
+    const asuulguud = await HabeaModel.find({ turul: "asuult" })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    console.log("Found active questions:", asuulguud.length);
+
+    if (asuulguud.length === 0) {
+      return res.json({
+        niitMur: 0,
+        khuudasniiDugaar: 1,
+        khuudasniiKhemjee: 20,
+        jagsaalt: [],
+      });
+    }
+
+    const targetDate = ognoo ? new Date(ognoo) : new Date();
+    targetDate.setHours(0, 0, 0, 0);
+
+    const existingAnswer = await HabeaModel.findOne({
+      ajiltniiId,
+      ognoo: {
+        $gte: targetDate,
+        $lt: new Date(targetDate.getTime() + 24 * 60 * 60 * 1000),
+      },
+      turul: "khariult",
+    }).lean();
+
+    console.log("Existing answer found:", !!existingAnswer);
+
+    const mappedAsuulguud = asuulguud.map((asuult) => {
+      const existingAsuult = existingAnswer?.asuulguud?.find(
+        (a) => a.asuultId === asuult._id.toString()
+      );
+
+      return {
+        _id: asuult._id,
+        asuulga: asuult.asuult,
+        asuultId: asuult._id.toString(),
+        khariult: existingAsuult?.khariult ?? null,
+        tailbar: existingAsuult?.tailbar || "",
+      };
+    });
+
+    const responseData = {
+      _id: existingAnswer?._id,
+      ajiltniiId,
+      ognoo: targetDate,
+      asuulguud: mappedAsuulguud,
+      gariinUseg: existingAnswer?.gariinUseg,
+      zasakhEsekh: false,
+    };
+
+    res.json({
+      niitMur: 1,
+      khuudasniiDugaar: 1,
+      khuudasniiKhemjee: 20,
+      jagsaalt: [responseData],
+    });
+  } catch (err) {
+    console.error("Error fetching questions for mobile:", err);
     next(err);
   }
 });
@@ -112,6 +181,13 @@ router.post("/khabTuukhKhadgalya", tokenShalgakh, async (req, res, next) => {
     const dateToSave = ognoo ? new Date(ognoo) : new Date();
     dateToSave.setHours(0, 0, 0, 0);
 
+    const formattedAsuulguud = asuulguud.map((a) => ({
+      asuultId: a.asuultId,
+      khariult: a.khariult,
+      tailbar: a.tailbar || "",
+      status: a.khariult === true ? "accepted" : "declined",
+    }));
+
     const existingRecord = await HabeaModel.findOne({
       ajiltniiId,
       ognoo: {
@@ -122,7 +198,7 @@ router.post("/khabTuukhKhadgalya", tokenShalgakh, async (req, res, next) => {
     });
 
     if (existingRecord) {
-      existingRecord.asuulguud = asuulguud;
+      existingRecord.asuulguud = formattedAsuulguud;
       if (gariinUseg) {
         existingRecord.gariinUseg = gariinUseg;
       }
@@ -133,7 +209,7 @@ router.post("/khabTuukhKhadgalya", tokenShalgakh, async (req, res, next) => {
       const newRecord = await HabeaModel.create({
         ajiltniiId,
         ognoo: dateToSave,
-        asuulguud,
+        asuulguud: formattedAsuulguud,
         gariinUseg: gariinUseg || null,
         turul: "khariult",
       });
@@ -173,11 +249,67 @@ router.post("/khabTuukhAvya", tokenShalgakh, async (req, res, next) => {
 
     console.log("Found saved answers:", jagsaalt.length);
 
+    const jagsaaltWithUserInfo = await Promise.all(
+      jagsaalt.map(async (item) => {
+        let ajiltanInfo = null;
+
+        if (item.ajiltniiId) {
+          try {
+            const ajiltan = await AjiltanModel.findById(item.ajiltniiId)
+              .select("ner ovog mail")
+              .lean();
+
+            if (ajiltan) {
+              ajiltanInfo = {
+                ner: ajiltan.ner,
+                ovog: ajiltan.ovog,
+                mail: ajiltan.mail,
+                fullName: `${ajiltan.ovog || ""} ${ajiltan.ner || ""}`.trim(),
+              };
+            }
+          } catch (err) {
+            console.error("Error fetching ajiltan:", err);
+          }
+        }
+
+        if (item.asuulguud && Array.isArray(item.asuulguud)) {
+          const populatedAsuulguud = await Promise.all(
+            item.asuulguud.map(async (asuulga) => {
+              try {
+                const question = await HabeaModel.findById(asuulga.asuultId)
+                  .select("asuult")
+                  .lean();
+
+                return {
+                  ...asuulga,
+                  asuultText: question?.asuult || "Асуулт олдсонгүй",
+                };
+              } catch (err) {
+                console.error("Error fetching question:", err);
+                return {
+                  ...asuulga,
+                  asuultText: "Асуулт олдсонгүй",
+                };
+              }
+            })
+          );
+
+          return {
+            ...item,
+            ajiltanInfo,
+            asuulguud: populatedAsuulguud,
+          };
+        }
+
+        return { ...item, ajiltanInfo };
+      })
+    );
+
     res.json({
       niitMur: total,
       khuudasniiDugaar,
       khuudasniiKhemjee,
-      jagsaalt,
+      jagsaalt: jagsaaltWithUserInfo,
     });
   } catch (err) {
     console.error("Error fetching saved answers:", err);
