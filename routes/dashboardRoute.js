@@ -217,6 +217,12 @@ function groupByOntsgoiZurchliinNer(params = {}) {
     },
   });
 
+  pipeline.push({
+    $addFields: {
+      tovchNer: { $arrayElemAt: ["$zurchliinTurul.tovchNer", 0] },
+    },
+  });
+
   // Дүүрэгийн шүүлт
   if (duuregId) {
     pipeline.push({
@@ -244,7 +250,10 @@ function groupByOntsgoiZurchliinNer(params = {}) {
     pipeline.push({
       $lookup: {
         from: "hariyaNegj",
-        let: { ajDuuregOid: "$ajiltanDuuregOid", ajDuuregStr: "$ajiltan.duureg" },
+        let: {
+          ajDuuregOid: "$ajiltanDuuregOid",
+          ajDuuregStr: "$ajiltan.duureg",
+        },
         pipeline: [
           {
             $match: {
@@ -282,12 +291,14 @@ function groupByOntsgoiZurchliinNer(params = {}) {
         zurchliinTovchlol: "$zurchliinTovchlol",
       },
       count: { $sum: 1 },
+      tovchNer: { $first: "$tovchNer" }
     },
   });
 
   pipeline.push({
     $project: {
       _id: "$_id.zurchliinNer",
+      tovchNer: 1,
       zurchliinTovchlol: "$_id.zurchliinTovchlol",
       total: "$count",
     },

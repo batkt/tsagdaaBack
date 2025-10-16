@@ -26,7 +26,6 @@ router.get('/zoosonTseguudAvya', tokenShalgakh, async (req, res, next) => {
           'bairshil.coordinates.0': { $exists: true },
         },
       };
-    console.log('body.query', body.query);
     khuudaslalt(Tseg, body)
       .then((result) => {
         res.send(result);
@@ -96,10 +95,6 @@ router.post('/tsegOlnoorKhadgalya', tokenShalgakh, async (req, res, next) => {
       for await (const tseg of tseguud) {
         khadgalakhTseguud.push(new Tseg(tseg));
       }
-      console.log(
-        'khadgalakhTseguud',
-        JSON.stringify(khadgalakhTseguud, null, 4)
-      );
       await Tseg.insertMany(khadgalakhTseguud);
       res.send('Amjilttai');
     } else {

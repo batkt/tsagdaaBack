@@ -4,6 +4,7 @@ const Ajiltan = require("../models/ajiltan");
 const Tuluvluguu = require("../models/tuluvluguu");
 const Tseg = require("../models/tseg");
 const xlsx = require("xlsx");
+const jwt = require("jsonwebtoken");
 const HariyaNegj = require("../models/hariyaNegj");
 
 function usegTooruuKhurvuulekh(useg) {
@@ -43,7 +44,6 @@ async function ajiltanOruulya(tseguud, aldaaniiMsg) {
     )
       jagsaalt.push(a.ajiltniiKod);
   }
-  console.log("jagsaalt", jagsaalt);
   if (jagsaalt.length > 0)
     jagsaalt = jagsaalt.filter((a) => a && a != null && a != "" && a != " ");
   var ajiltniiJagsaalt = await Ajiltan.find({
@@ -91,9 +91,36 @@ async function ajiltanOruulya(tseguud, aldaaniiMsg) {
 
 exports.ajiltanTatya = asyncHandler(async (req, res, next) => {
   try {
+    if (!req.headers.authorization) {
+      throw new Error("Энэ үйлдлийг хийх эрх байхгүй байна!", 401);
+    }
+    const token = req.headers.authorization.split(" ")[1];
+    const tokenObject = jwt.verify(token, process.env.APP_SECRET, 401);
+
+    if (!tokenObject) {
+      throw new Error("Энэ үйлдлийг хийх эрх байхгүй байна!", 401);
+    }
+    const nevtersenAjiltan = await Ajiltan.findById(tokenObject.id);
+    if (!nevtersenAjiltan) {
+      throw new Error("Энэ үйлдлийг хийх эрх байхгүй байна!", 401);
+    }
+    if (!nevtersenAjiltan?.duureg) {
+      throw new Error(
+        "Та ямар нэг харьяа нэгжид бүртгэлгүй байна. Системийн админд хандана уу.",
+        500
+      );
+    }
+    const nevtersenAjiltaniiHariyaNegj = await HariyaNegj.findById(
+      nevtersenAjiltan.duureg
+    );
+    if (!nevtersenAjiltaniiHariyaNegj) {
+      throw new Error(
+        "Таны харьяа нэгж алдаатай байна. Системийн админд хандана уу.",
+        500
+      );
+    }
     const workbook = xlsx.read(req.file.buffer);
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-    const hariyaNegjData = await HariyaNegj.find();
     const jagsaalt = [];
     var tolgoinObject = {};
     var data = xlsx.utils.sheet_to_json(worksheet, {
@@ -111,9 +138,8 @@ exports.ajiltanTatya = asyncHandler(async (req, res, next) => {
       !worksheet["F1"]?.v?.includes("Хувийн дугаар") ||
       !worksheet["G1"]?.v?.includes("Дуудлага") ||
       !worksheet["H1"]?.v?.includes("Утас") ||
-      !worksheet["I1"]?.v?.includes("Дүүрэг") ||
-      !worksheet["J1"]?.v?.includes("Хэлтэс") ||
-      !worksheet["K1"]?.v?.includes("Тасаг")
+      !worksheet["I1"]?.v?.includes("Хэлтэс") ||
+      !worksheet["J1"]?.v?.includes("Тасаг")
     ) {
       throw new Error("Та загварын дагуу бөглөөгүй байна!");
     }
@@ -140,8 +166,6 @@ exports.ajiltanTatya = asyncHandler(async (req, res, next) => {
           tolgoinObject.porool = cellAsString[0];
         else if (worksheet[cellAsString].v === "Утас")
           tolgoinObject.utas = cellAsString[0];
-        else if (worksheet[cellAsString].v === "Дүүрэг")
-          tolgoinObject.duureg = cellAsString[0];
         else if (worksheet[cellAsString].v === "Хэлтэс")
           tolgoinObject.kheltes = cellAsString[0];
         else if (worksheet[cellAsString].v === "Тасаг")
@@ -165,11 +189,11 @@ exports.ajiltanTatya = asyncHandler(async (req, res, next) => {
       object.porool = mur[usegTooruuKhurvuulekh(tolgoinObject.porool)];
       object.utas = mur[usegTooruuKhurvuulekh(tolgoinObject.utas)];
 
-      const duuregCellValue = mur[usegTooruuKhurvuulekh(tolgoinObject?.duureg)];
-      const ajiltanDuureg = hariyaNegjData?.find(
-        (item) => item?.ner?.toLowerCase() === duuregCellValue?.toLowerCase()
-      );
-      object.duureg = ajiltanDuureg?._id;
+      // const duuregCellValue = mur[usegTooruuKhurvuulekh(tolgoinObject?.duureg)];
+      // const ajiltanDuureg = hariyaNegjData?.find(
+      //   (item) => item?.ner?.toLowerCase() === duuregCellValue?.toLowerCase()
+      // );
+      object.duureg = nevtersenAjiltaniiHariyaNegj._id.toString();
       object.nevtrekhNer =
         mur[usegTooruuKhurvuulekh(tolgoinObject.nevtrekhNer)];
       if (
@@ -267,11 +291,6 @@ exports.ajiltanZagvarAvya = asyncHandler(async (req, res, next) => {
       width: 20,
     },
     {
-      header: "Дүүрэг",
-      key: "Дүүрэг",
-      width: 20,
-    },
-    {
       header: "Хэлтэс",
       key: "Хэлтэс",
       width: 20,
@@ -282,19 +301,19 @@ exports.ajiltanZagvarAvya = asyncHandler(async (req, res, next) => {
       width: 20,
     },
   ];
-  const duuregColLetter = "I";
-  const hariyaNegjData = await HariyaNegj.find();
-  const DUUREG_LIST = hariyaNegjData?.map((item) => item.ner);
+  // const duuregColLetter = "I";
+  // const hariyaNegjData = await HariyaNegj.find();
+  // const DUUREG_LIST = hariyaNegjData?.map((item) => item.ner);
   worksheet.columns = baganuud;
-  worksheet.dataValidations.add(`${duuregColLetter}2:${duuregColLetter}1000`, {
-    type: "list",
-    allowBlank: true,
-    formulae: [`"${DUUREG_LIST.join(",")}"`],
-    showErrorMessage: true,
-    errorStyle: "stop",
-    errorTitle: "Буруу утга",
-    error: "Жагсаалтаас Дүүргийг сонгоно уу."
-  });
+  // worksheet.dataValidations.add(`${duuregColLetter}2:${duuregColLetter}1000`, {
+  //   type: "list",
+  //   allowBlank: true,
+  //   formulae: [`"${DUUREG_LIST.join(",")}"`],
+  //   showErrorMessage: true,
+  //   errorStyle: "stop",
+  //   errorTitle: "Буруу утга",
+  //   error: "Жагсаалтаас Дүүргийг сонгоно уу.",
+  // });
   res.setHeader(
     "Content-Type",
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -433,7 +452,7 @@ exports.tsegZagvarAvya = asyncHandler(async (req, res, next) => {
 
 exports.tsegGaraarBurtgeh = asyncHandler(async (req, res, next) => {
   try {
-    const { ner, duureg, kod, ajiltnuud } = req.body;
+    const { ner, duureg, kod, ajiltnuud, tuluvluguuID } = req.body;
 
     if (!ner || !duureg || !kod) {
       return res.status(400).json({ message: "Бүх талбаруудыг бөглөнө үү." });
@@ -463,16 +482,14 @@ exports.tsegGaraarBurtgeh = asyncHandler(async (req, res, next) => {
       }
     }
 
-    const tuluvluguu = await Tuluvluguu.findOne({ idevkhiteiEsekh: true });
+    const tuluvluguu = await Tuluvluguu.findById(tuluvluguuID);
 
     if (!tuluvluguu) {
-      return res
-        .status(400)
-        .json({ message: "Идэвхтэй төлөвлөгөө олдсонгүй." });
+      return res.status(400).json({ message: "Төлөвлөгөө олдсонгүй." });
     }
 
     const tseg = await Tseg.findOneAndUpdate(
-      { ner, tuluvluguuniiId: tuluvluguu._id },
+      { ner, tuluvluguuniiId: tuluvluguuID },
       {
         $set: {
           ner,
@@ -481,7 +498,7 @@ exports.tsegGaraarBurtgeh = asyncHandler(async (req, res, next) => {
           ajiltniiKod: ajiltnuud,
           ajiltniiToo: ajiltanList.length,
           ajiltnuud: ajiltanList,
-          tuluvluguuniiId: tuluvluguu._id,
+          tuluvluguuniiId: tuluvluguuID,
           tuluvluguuniiNer: tuluvluguu.ner,
         },
       },

@@ -24,6 +24,7 @@ const aldaaBarigch = require("./middleware/aldaaBarigch");
 const {
   initializeNotificationService,
 } = require("./controller/medegdelController");
+const TuluvluguuModel = require("./models/tuluvluguu");
 
 const dbUrl = process.env.MONGO_URL || "mongodb://localhost:27017/tsagdaa"; // mongo
 
@@ -41,7 +42,28 @@ mongoose
 
 process.env.TZ = "Asia/Ulaanbaatar";
 
-const redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379");
+const redis = new Redis({
+  host: '127.0.0.1',
+  port: 6379,
+  retryStrategy(times) {
+    const delay = Math.min(times * 50, 2000);
+    return delay;
+  }
+});
+
+// Холбогдсон үед
+redis.on('connect', () => {
+  console.log('✅ Redis-тэй холбогдож байна...');
+});
+
+redis.on('ready', () => {
+  console.log('✅ Redis бэлэн болсон!');
+});
+
+// Алдаа гарвал
+redis.on('error', (err) => {
+  console.error('❌ Redis алдаа:', err.message);
+});
 
 initializeNotificationService(redis, io);
 
@@ -75,7 +97,7 @@ async function broadcastActiveUserCount() {
 
 cron.schedule("0 4 * * *", async () => {
   console.log("🕓 Ulaanbaatar-ийн 4 цагт ажиллав (UTC дээр 20 цаг)");
-  await redis.del("online-users"); 
+  await redis.del("online-users");
 });
 
 io.on("connection", async (socket) => {
@@ -96,3 +118,46 @@ io.on("connection", async (socket) => {
     await broadcastActiveUserCount();
   });
 });
+
+const updateTuluvluguuTuluv = async () => {
+  try {
+    const now = new Date();
+
+    // 1. Дуусах огноо өнгөрсөн бүгдийг "Дууссан" болгох
+    const duussanResult = await TuluvluguuModel.updateMany(
+      {
+        duusakhOgnoo: { $lt: now },
+      },
+      {
+        $set: {
+          tuluv: "Дууссан",
+          idevkhiteiEsekh: false,
+        },
+      }
+    );
+
+    console.log(
+      `${duussanResult.modifiedCount} төлөвлөгөө "Дууссан" болсон`
+    );
+
+    // 2. Бусад бүгдийг "Эхэлсэн" болгож, idevkhiteiEsekh = true
+    const ekhelsenResult = await TuluvluguuModel.updateMany(
+      {
+        duusakhOgnoo: { $gte: now },
+      },
+      {
+        $set: {
+          tuluv: "Эхэлсэн",
+          idevkhiteiEsekh: true,
+        },
+      }
+    );
+
+    console.log(
+      `${ekhelsenResult.modifiedCount} төлөвлөгөө "Эхэлсэн" болж, идэвхтэй болсон`
+    );
+  } catch (error) {
+    console.error("Алдаа гарлаа:", error);
+    throw error;
+  }
+};

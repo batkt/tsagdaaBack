@@ -38,7 +38,6 @@ router.post("/zurchliinTurulZasah", tokenShalgakh, async (req, res, next) => {
       return res.status(400).json({ message: "Зөрчлийн төрөл олдсонгүй." });
     }
 
-    console.log(req.body);
     await ZurchliinTurulModel.updateOne(
       {
         _id: req.body?._id,

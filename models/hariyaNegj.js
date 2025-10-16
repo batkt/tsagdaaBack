@@ -6,6 +6,7 @@ const hariyaNegjSchema = new Schema(
   {
     buleg: String,
     ner: String,
+    tovchlol: String
   },
   { timestamps: true }
 );
