@@ -67,7 +67,6 @@ router.post("/tsegTatya", uploadFile.single("file"), tsegTatya);
 router.post("/tsegGaraarBurtgeh", tsegGaraarBurtgeh);
 
 router.post("/ajiltanNevtrey", async (req, res, next) => {
-  console.log("login ----------", req.body);
   try {
     const ajiltan = await Ajiltan.findOne()
       .where("nevtrekhNer")
@@ -76,7 +75,6 @@ router.post("/ajiltanNevtrey", async (req, res, next) => {
       .catch((err) => {
         next(err);
       });
-    console.log("sonin ymaa ", ajiltan);
     if (!ajiltan)
       throw new Error("Хэрэглэгчийн нэр эсвэл нууц үг буруу байна!");
     var ok = await ajiltan.passwordShalgaya(req.body.nuutsUg);
@@ -113,7 +111,6 @@ router.post(
     try {
       const { nevtersenAjiltniiToken, id: tuluvluguuId } = req.body;
       const all = await IdevkhiteiTuluvluguuModel.find({ ajiltanId: nevtersenAjiltniiToken.id });
-      console.log("all", all)
       const result = await IdevkhiteiTuluvluguuModel.updateOne(
         { ajiltanId: nevtersenAjiltniiToken.id },
         {
@@ -124,7 +121,6 @@ router.post(
         },
         { upsert: true }
       );
-      console.log("result ", result);
       res.send("Amjilttai");
     } catch (err) {
       next(err);
@@ -144,7 +140,6 @@ router.get(
         return res.send(undefined);
       }
       var b = await Tuluvluguu.findById(activePlan?.tuluvluguuID);
-      console.log("WTF ", b)
       res.send(b);
     } catch (err) {
       next(err);

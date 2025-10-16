@@ -44,7 +44,6 @@ async function ajiltanOruulya(tseguud, aldaaniiMsg) {
     )
       jagsaalt.push(a.ajiltniiKod);
   }
-  console.log("jagsaalt", jagsaalt);
   if (jagsaalt.length > 0)
     jagsaalt = jagsaalt.filter((a) => a && a != null && a != "" && a != " ");
   var ajiltniiJagsaalt = await Ajiltan.find({
@@ -120,7 +119,6 @@ exports.ajiltanTatya = asyncHandler(async (req, res, next) => {
         500
       );
     }
-    console.log("nevtersenAjiltniiToken ", nevtersenAjiltan);
     const workbook = xlsx.read(req.file.buffer);
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
     const jagsaalt = [];

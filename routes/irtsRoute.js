@@ -96,7 +96,6 @@ router.post('/irtsBurtguulye', tokenShalgakh, async (req, res, next) => {
       throw new Error(
         'Та байршлын мэдээллийг асаах эсвэл ажлын интернет сүлжээнд холбогдож ирцээ бүртгүүлэх боломжтой!'
       );
-    console.log('bairshil', bairshil);
     console.log('suljeeniiMacKhayag', suljeeniiMacKhayag);
     var unuudur = new Date();
     var unuudriinIrts = await Irts.findOne({
@@ -112,7 +111,6 @@ router.post('/irtsBurtguulye', tokenShalgakh, async (req, res, next) => {
     var tsagdaagiinGazar = await TsagdaagiinGazar.findById(
       req.body.tsagdaagiinGazriinId
     ).lean();
-    console.log('tsagdaagiinGazar', tsagdaagiinGazar);
     var tukhainTukhuurumj = await Tukhuurumj.findOne({
       tsagdaagiinGazriinId: req.body.tsagdaagiinGazriinId,
       macKhayag: suljeeniiMacKhayag,
@@ -136,9 +134,7 @@ router.post('/irtsBurtguulye', tokenShalgakh, async (req, res, next) => {
           },
         },
       ];
-      console.log('query', JSON.stringify(query, null, 4));
       var agg = await TsagdaagiinGazar.aggregate(query);
-      console.log('agg', agg);
       if (!agg || agg.length == 0 || agg[0].zai > 200)
         throw new Error('Зөвхөн ажлын байр дээрээс бүртгэл хийх боломжтой!');
     }
@@ -222,13 +218,11 @@ router.post('/garsanTsagBurtguulye', tokenShalgakh, async (req, res, next) => {
     var tsagdaagiinGazar = await TsagdaagiinGazar.findById(
       req.body.tsagdaagiinGazriinId
     ).lean();
-    console.log('tsagdaagiinGazar', tsagdaagiinGazar);
 
     var tukhainTukhuurumj = await Tukhuurumj.findOne({
       tsagdaagiinGazriinId: req.body.tsagdaagiinGazriinId,
       macKhayag: suljeeniiMacKhayag,
     });
-    console.log('tukhainTukhuurumj', tukhainTukhuurumj);
     if (!tukhainTukhuurumj) {
       var ObjectId = require('mongodb').ObjectId;
       var agg = await TsagdaagiinGazar.aggregate([
