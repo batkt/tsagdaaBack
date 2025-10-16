@@ -293,7 +293,7 @@ exports.ajiltanZagvarAvya = asyncHandler(async (req, res, next) => {
     showErrorMessage: true,
     errorStyle: "stop",
     errorTitle: "Буруу утга",
-    error: "Жагсаалтаас Дүүргийг сонгоно уу."
+    error: "Жагсаалтаас Дүүргийг сонгоно уу.",
   });
   res.setHeader(
     "Content-Type",
@@ -433,7 +433,7 @@ exports.tsegZagvarAvya = asyncHandler(async (req, res, next) => {
 
 exports.tsegGaraarBurtgeh = asyncHandler(async (req, res, next) => {
   try {
-    const { ner, duureg, kod, ajiltnuud } = req.body;
+    const { ner, duureg, kod, ajiltnuud, tuluvluguuID } = req.body;
 
     if (!ner || !duureg || !kod) {
       return res.status(400).json({ message: "Бүх талбаруудыг бөглөнө үү." });
@@ -463,16 +463,14 @@ exports.tsegGaraarBurtgeh = asyncHandler(async (req, res, next) => {
       }
     }
 
-    const tuluvluguu = await Tuluvluguu.findOne({ idevkhiteiEsekh: true });
+    const tuluvluguu = await Tuluvluguu.findById(tuluvluguuID)
 
-    if (!tuluvluguu) {
-      return res
-        .status(400)
-        .json({ message: "Идэвхтэй төлөвлөгөө олдсонгүй." });
+    if(!tuluvluguu) {
+      return res.status(400).json({ message: "Төлөвлөгөө олдсонгүй." });
     }
 
     const tseg = await Tseg.findOneAndUpdate(
-      { ner, tuluvluguuniiId: tuluvluguu._id },
+      { ner, tuluvluguuniiId: tuluvluguuID },
       {
         $set: {
           ner,
@@ -481,7 +479,7 @@ exports.tsegGaraarBurtgeh = asyncHandler(async (req, res, next) => {
           ajiltniiKod: ajiltnuud,
           ajiltniiToo: ajiltanList.length,
           ajiltnuud: ajiltanList,
-          tuluvluguuniiId: tuluvluguu._id,
+          tuluvluguuniiId: tuluvluguuID,
           tuluvluguuniiNer: tuluvluguu.ner,
         },
       },
