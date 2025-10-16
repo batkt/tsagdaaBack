@@ -42,7 +42,28 @@ mongoose
 
 process.env.TZ = "Asia/Ulaanbaatar";
 
-const redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379");
+const redis = new Redis({
+  host: '127.0.0.1',
+  port: 6379,
+  retryStrategy(times) {
+    const delay = Math.min(times * 50, 2000);
+    return delay;
+  }
+});
+
+// Холбогдсон үед
+redis.on('connect', () => {
+  console.log('✅ Redis-тэй холбогдож байна...');
+});
+
+redis.on('ready', () => {
+  console.log('✅ Redis бэлэн болсон!');
+});
+
+// Алдаа гарвал
+redis.on('error', (err) => {
+  console.error('❌ Redis алдаа:', err.message);
+});
 
 initializeNotificationService(redis, io);
 
