@@ -1004,7 +1004,9 @@ async function getAttendanceStatistics(input) {
       hariyaNegjQuery._id = duureg;
     }
 
-    const hariyaNegjList = await HariyaNegjModel.find(hariyaNegjQuery).select("_id");
+    const hariyaNegjList = await HariyaNegjModel.find(hariyaNegjQuery).select(
+      "_id"
+    );
     const hariyaNegjIds = hariyaNegjList.map((h) => h._id);
 
     if (hariyaNegjIds.length > 0) {
@@ -1021,8 +1023,8 @@ async function getAttendanceStatistics(input) {
   }
 
   // Ажилтнуудын хуваарь огноо интервалд багтах цэгүүдийг олох
+  matchCriteria["ajiltnuud.khuvaariinEkhlekhOgnoo"] = { $gte: start };
   matchCriteria["ajiltnuud.khuvaariinEkhlekhOgnoo"] = { $lte: end };
-  matchCriteria["ajiltnuud.khuvaariinDuusakhOgnoo"] = { $gte: start };
 
   const tsegList = await TsegModel.find(matchCriteria);
 
@@ -1038,79 +1040,38 @@ async function getAttendanceStatistics(input) {
       const khuvaariinEkhlekh = new Date(ajiltan.khuvaariinEkhlekhOgnoo);
       const khuvaariinDuusakh = new Date(ajiltan.khuvaariinDuusakhOgnoo);
 
-      // Хуваарийн огноо интервалтай огцолдож байгаа эсэх
-      if (khuvaariinEkhlekh <= end && khuvaariinDuusakh >= start) {
-        // Тасалсан ажилтан эсэхийг шалгах
-        // Дуусах огноо нь endDate-с өмнө бол тасалсан гэж үзнэ
-        const isFired = khuvaariinDuusakh < end;
+      // Интервалд ажиллах ажилтан олох
+      if (khuvaariinEkhlekh <= end && khuvaariinEkhlekh >= start) {
+        // Ажилтан 20 хүртэлх минутын өмнө ирж болно.
+        const ertIrehOgnoo = new Date(
+          khuvaariinEkhlekh.getTime() - 15 * 60 * 1000
+        );
 
         // Тухайн ажилтны ирцийг шалгах
         const ajiltanIrts = tseg.irts.filter((irts) => {
-          // ajiltan object-тэй харьцуулах (register эсвэл бусад unique field ашиглах)
           const irtsAjiltan = irts.ajiltan;
           const irtsOgnoo = new Date(irts.ognoo);
 
-          // Ажилтан таарч байгаа эсэх (register-ээр харьцуулах нь хамгийн найдвартай)
           const isMatchingAjiltan =
             irtsAjiltan &&
-            ajiltan.register &&
-            irtsAjiltan.register === ajiltan.register;
+            ajiltan.nevtrekhNer &&
+            irtsAjiltan.nevtrekhNer === ajiltan.nevtrekhNer;
 
           // Огноо интервалд багтаж байгаа эсэх
-          const isInDateRange = irtsOgnoo >= start && irtsOgnoo <= end;
+          const isInDateRange =
+            irtsOgnoo >= ertIrehOgnoo && irtsOgnoo <= khuvaariinDuusakh;
 
           return isMatchingAjiltan && isInDateRange;
         });
 
         totalWorkers++;
 
-        // Тасалсан ажилтан бол ирц байхгүй байж болно
-        if (isFired && ajiltanIrts.length === 0) {
-          // Тасалсан, ирц байхгүй - тооцохгүй эсвэл тусгай шалгуур хэрэглэх
-          // Тасалсан огнооноос өмнөх хугацаанд ирц байгаа эсэхийг шалгах
-          const irtsBeforeFired = tseg.irts.filter((irts) => {
-            const irtsAjiltan = irts.ajiltan;
-            const irtsOgnoo = new Date(irts.ognoo);
-
-            const isMatchingAjiltan =
-              irtsAjiltan &&
-              ajiltan.register &&
-              irtsAjiltan.register === ajiltan.register;
-
-            // Эхлэх огнооноос тасалсан огноо хүртэлх хугацаанд ирц байгаа эсэх
-            const isBeforeFired =
-              irtsOgnoo >= start && irtsOgnoo <= khuvaariinDuusakh;
-
-            return isMatchingAjiltan && isBeforeFired;
-          });
-
-          if (irtsBeforeFired.length === 0) {
-            // Тасалсан хүртэл огт ирээгүй
-            absent++;
-          } else {
-            // Тасалсан хүртэл ирцтэй байсан - цагтаа эсвэл хоцорсон шалгах
-            const isLate = irtsBeforeFired.some((irts) => {
-              const irtsTime = new Date(irts.ognoo);
-              const scheduleStart = new Date(khuvaариinEkhlekh);
-              scheduleStart.setHours(9, 0, 0, 0);
-
-              return irtsTime > scheduleStart;
-            });
-
-            if (isLate) {
-              late++;
-            } else {
-              onTime++;
-            }
-          }
-        } else if (ajiltanIrts.length > 0) {
+        // Тасалсан ажилтан бол ирц байхгүй
+        if (ajiltanIrts && ajiltanIrts?.length > 0) {
           // Идэвхтэй ажилтан, ирцтэй
           const isLate = ajiltanIrts.some((irts) => {
             const irtsTime = new Date(irts.ognoo);
-            const scheduleStart = new Date(khuvaариinEkhlekh);
-            scheduleStart.setHours(9, 0, 0, 0);
-
-            return irtsTime > scheduleStart;
+            return irtsTime > khuvaariinEkhlekh;
           });
 
           if (isLate) {
@@ -1119,7 +1080,6 @@ async function getAttendanceStatistics(input) {
             onTime++;
           }
         } else {
-          // Идэвхтэй ажилтан, ирц байхгүй
           absent++;
         }
       }
