@@ -291,7 +291,7 @@ function groupByOntsgoiZurchliinNer(params = {}) {
         zurchliinTovchlol: "$zurchliinTovchlol",
       },
       count: { $sum: 1 },
-      tovchNer: { $first: "$tovchNer" }
+      tovchNer: { $first: "$tovchNer" },
     },
   });
 
@@ -984,6 +984,156 @@ const getTseguudCountByDuureg = async (params = {}) => {
   return { summary, duurguud: result };
 };
 
+async function getAttendanceStatistics(input) {
+  const { startDate, endDate, duureg, buleg } = input;
+
+  // Огнооны интервал - datetime string-ийг шууд Date object болгоно
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  // Match шалгуур үүсгэх
+  let matchCriteria = {};
+
+  // Бүлгээр шүүх
+  if (buleg !== "Улс") {
+    // Харьяа нэгжийн ID-г олох
+    const hariyaNegjQuery = { buleg };
+
+    if (duureg && duureg !== "Бүх дүүрэг" && duureg !== "Бүх аймаг") {
+      // Тодорхой дүүрэг/аймаг сонгосон бол
+      hariyaNegjQuery._id = duureg;
+    }
+
+    const hariyaNegjList = await HariyaNegjModel.find(hariyaNegjQuery).select("_id");
+    const hariyaNegjIds = hariyaNegjList.map((h) => h._id);
+
+    if (hariyaNegjIds.length > 0) {
+      matchCriteria.duureg = { $in: hariyaNegjIds };
+    } else {
+      // Харьяа нэгж олдоогүй бол хоосон үр дүн буцаана
+      return {
+        totalWorkers: 0,
+        onTime: 0,
+        late: 0,
+        absent: 0,
+      };
+    }
+  }
+
+  // Ажилтнуудын хуваарь огноо интервалд багтах цэгүүдийг олох
+  matchCriteria["ajiltnuud.khuvaariinEkhlekhOgnoo"] = { $lte: end };
+  matchCriteria["ajiltnuud.khuvaariinDuusakhOgnoo"] = { $gte: start };
+
+  const tsegList = await TsegModel.find(matchCriteria);
+
+  let totalWorkers = 0;
+  let onTime = 0;
+  let late = 0;
+  let absent = 0;
+
+  // Цэг бүрээр давтах
+  for (const tseg of tsegList) {
+    // Ажилтан бүрээр давтах
+    for (const ajiltan of tseg.ajiltnuud) {
+      const khuvaariinEkhlekh = new Date(ajiltan.khuvaariinEkhlekhOgnoo);
+      const khuvaariinDuusakh = new Date(ajiltan.khuvaariinDuusakhOgnoo);
+
+      // Хуваарийн огноо интервалтай огцолдож байгаа эсэх
+      if (khuvaariinEkhlekh <= end && khuvaariinDuusakh >= start) {
+        // Тасалсан ажилтан эсэхийг шалгах
+        // Дуусах огноо нь endDate-с өмнө бол тасалсан гэж үзнэ
+        const isFired = khuvaариinDuusakh < end;
+
+        // Тухайн ажилтны ирцийг шалгах
+        const ajiltanIrts = tseg.irts.filter((irts) => {
+          // ajiltan object-тэй харьцуулах (register эсвэл бусад unique field ашиглах)
+          const irtsAjiltan = irts.ajiltan;
+          const irtsOgnoo = new Date(irts.ognoo);
+
+          // Ажилтан таарч байгаа эсэх (register-ээр харьцуулах нь хамгийн найдвартай)
+          const isMatchingAjiltan =
+            irtsAjiltan &&
+            ajiltan.register &&
+            irtsAjiltan.register === ajiltan.register;
+
+          // Огноо интервалд багтаж байгаа эсэх
+          const isInDateRange = irtsOgnoo >= start && irtsOgnoo <= end;
+
+          return isMatchingAjiltan && isInDateRange;
+        });
+
+        totalWorkers++;
+
+        // Тасалсан ажилтан бол ирц байхгүй байж болно
+        if (isFired && ajiltanIrts.length === 0) {
+          // Тасалсан, ирц байхгүй - тооцохгүй эсвэл тусгай шалгуур хэрэглэх
+          // Тасалсан огнооноос өмнөх хугацаанд ирц байгаа эсэхийг шалгах
+          const irtsBeforeFired = tseg.irts.filter((irts) => {
+            const irtsAjiltan = irts.ajiltan;
+            const irtsOgnoo = new Date(irts.ognoo);
+
+            const isMatchingAjiltan =
+              irtsAjiltan &&
+              ajiltan.register &&
+              irtsAjiltan.register === ajiltan.register;
+
+            // Эхлэх огнооноос тасалсан огноо хүртэлх хугацаанд ирц байгаа эсэх
+            const isBeforeFired =
+              irtsOgnoo >= start && irtsOgnoo <= khuvaариinDuusakh;
+
+            return isMatchingAjiltan && isBeforeFired;
+          });
+
+          if (irtsBeforeFired.length === 0) {
+            // Тасалсан хүртэл огт ирээгүй
+            absent++;
+          } else {
+            // Тасалсан хүртэл ирцтэй байсан - цагтаа эсвэл хоцорсон шалгах
+            const isLate = irtsBeforeFired.some((irts) => {
+              const irtsTime = new Date(irts.ognoo);
+              const scheduleStart = new Date(khuvaариinEkhlekh);
+              scheduleStart.setHours(9, 0, 0, 0);
+
+              return irtsTime > scheduleStart;
+            });
+
+            if (isLate) {
+              late++;
+            } else {
+              onTime++;
+            }
+          }
+        } else if (ajiltanIrts.length > 0) {
+          // Идэвхтэй ажилтан, ирцтэй
+          const isLate = ajiltanIrts.some((irts) => {
+            const irtsTime = new Date(irts.ognoo);
+            const scheduleStart = new Date(khuvaариinEkhlekh);
+            scheduleStart.setHours(9, 0, 0, 0);
+
+            return irtsTime > scheduleStart;
+          });
+
+          if (isLate) {
+            late++;
+          } else {
+            onTime++;
+          }
+        } else {
+          // Идэвхтэй ажилтан, ирц байхгүй
+          absent++;
+        }
+      }
+    }
+  }
+
+  return {
+    totalWorkers, // Нийт ажиллах ёстой ажилтан
+    onTime, // Цагтаа ирсэн
+    late, // Хоцорсон
+    absent, // Ирээгүй
+  };
+}
+
 router.get("/dashboardEmployees", tokenShalgakh, async (req, res, next) => {
   try {
     const {
@@ -1101,6 +1251,18 @@ router.get("/dashboardIrtsAjiltnuud", tokenShalgakh, async (req, res, next) => {
 
   const ajiltnuud = await getAllAjiltnuudWithStatus(tuluvluguuniiId, 1, 20);
   return res.json(ajiltnuud);
+});
+
+router.get("/dashboardIrtsTotal", tokenShalgakh, async (req, res, next) => {
+  const { startDate, endDate, buleg, negj } = req.query;
+
+  const result = await getAttendanceStatistics({
+    startDate,
+    endDate,
+    buleg,
+    negj,
+  });
+  return res.json(result);
 });
 
 router.get("/dashboardIrtsDuurgeer", tokenShalgakh, async (req, res, next) => {
