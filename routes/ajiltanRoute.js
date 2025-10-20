@@ -104,6 +104,18 @@ router.post("/nuutsUgSoliyo/:id", tokenShalgakh, async (req, res, next) => {
   }
 });
 
+router.post("/nuutsUgReset/:id", tokenShalgakh, async (req, res, next) => {
+  try {
+    const ajiltan = await Ajiltan.findById(req.params.id);
+    ajiltan.isNew = false;
+    ajiltan.nuutsUg = "123";
+    await ajiltan.save();
+    res.send("Amjilttai");
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post(
   "/tuluvluguuIdevkhjuulye",
   tokenShalgakh,

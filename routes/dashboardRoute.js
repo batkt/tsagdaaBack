@@ -368,6 +368,8 @@ function ajiltanZurchilPaginationPipeline(params) {
       aj_ner: { $ifNull: ["$ajiltan.ner", ""] },
       aj_nevtrekhNer: { $ifNull: ["$ajiltan.nevtrekhNer", ""] },
       aj_duuregStr: { $ifNull: ["$ajiltan.duureg", null] },
+      aj_tsol: { $ifNull: ["$ajiltan.tsol", ""] },
+      aj_duuregId: { $ifNull: ["$ajiltan.duureg", null] },
     },
   });
 
@@ -379,6 +381,8 @@ function ajiltanZurchilPaginationPipeline(params) {
         nevtrekhNer: "$aj_nevtrekhNer",
         duuregStr: "$aj_duuregStr",
         hariyaNer: "$hariya.ner",
+        tsol: "$aj_tsol",
+        duuregId: "$aj_duuregId",
       },
       total: { $sum: 1 },
     },
@@ -392,6 +396,8 @@ function ajiltanZurchilPaginationPipeline(params) {
       duureg: {
         $ifNull: ["$_id.hariyaNer", "$_id.duuregStr"],
       },
+      tsol: "$_id.tsol",
+      duuregId: "$_id.duuregId",
       total: 1,
     },
   });
