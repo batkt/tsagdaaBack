@@ -1042,7 +1042,7 @@ async function getAttendanceStatistics(input) {
       if (khuvaariinEkhlekh <= end && khuvaariinDuusakh >= start) {
         // Тасалсан ажилтан эсэхийг шалгах
         // Дуусах огноо нь endDate-с өмнө бол тасалсан гэж үзнэ
-        const isFired = khuvaариinDuusakh < end;
+        const isFired = khuvaariinDuusakh < end;
 
         // Тухайн ажилтны ирцийг шалгах
         const ajiltanIrts = tseg.irts.filter((irts) => {
@@ -1079,7 +1079,7 @@ async function getAttendanceStatistics(input) {
 
             // Эхлэх огнооноос тасалсан огноо хүртэлх хугацаанд ирц байгаа эсэх
             const isBeforeFired =
-              irtsOgnoo >= start && irtsOgnoo <= khuvaариinDuusakh;
+              irtsOgnoo >= start && irtsOgnoo <= khuvaariinDuusakh;
 
             return isMatchingAjiltan && isBeforeFired;
           });
