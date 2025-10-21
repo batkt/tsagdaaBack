@@ -233,14 +233,18 @@ exports.ajiltanTatya = asyncHandler(async (req, res, next) => {
         }
       }
     }
-    if (aldaaniiMsg) throw new Error(aldaaniiMsg);
-    Ajiltan.insertMany(jagsaalt)
-      .then((result) => {
-        res.status(200).send("Amjilttai");
-      })
-      .catch((err) => {
-        next(err);
-      });
+    if (aldaaniiMsg) {
+      console.error(aldaaniiMsg);
+    }
+    if (jagsaalt?.length > 0) {
+      Ajiltan.insertMany(jagsaalt)
+        .then((result) => {
+          res.status(200).send("Amjilttai");
+        })
+        .catch((err) => {
+          next(err);
+        });
+    }
   } catch (error) {
     next(error);
   }

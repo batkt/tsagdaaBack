@@ -8,6 +8,8 @@ const tuluvluguuSchema = new Schema(
     turul: String,
     ekhlekhOgnoo: Date,
     duusakhOgnoo: Date,
+    buleg: String,
+    negj: String,
     niislelEeljuud: [
       {
         ner: String,

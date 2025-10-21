@@ -60,7 +60,12 @@ router.get("/ajiltanIdgaarAvya/:id", async (req, res, next) => {
 });
 router.get("/ajiltanZagvarAvya", ajiltanZagvarAvya);
 router.post("/ajiltanGaraarBurtgeh", ajiltanGaraarBurtgeh);
-router.post("/ajiltanTatya", tokenShalgakh, uploadFile.single("file"), ajiltanTatya);
+router.post(
+  "/ajiltanTatya",
+  tokenShalgakh,
+  uploadFile.single("file"),
+  ajiltanTatya
+);
 
 router.get("/tsegZagvarAvya", tsegZagvarAvya);
 router.post("/tsegTatya", uploadFile.single("file"), tsegTatya);
@@ -145,7 +150,9 @@ router.get(
   async (req, res, next) => {
     try {
       const { nevtersenAjiltniiToken } = req.body;
-      const activePlan = await IdevkhiteiTuluvluguuModel.findOne({ ajiltanId: nevtersenAjiltniiToken.id })
+      const activePlan = await IdevkhiteiTuluvluguuModel.findOne({
+        ajiltanId: nevtersenAjiltniiToken.id,
+      });
 
       if (!activePlan) {
         return res.send(undefined);
@@ -278,11 +285,13 @@ router.get(
     try {
       var body = req.query;
       let buleg = "Улс";
+      let duureg = undefined;
       let inputEkhlekhOgnoo = undefined,
         inputDuusakhOgnoo = undefined;
       if (!!body?.query) {
         const query = JSON.parse(body.query);
         const { startDate, endDate, buleg: hariyaNegjBuleg, ...other } = query;
+        duureg = other?.duureg;
         buleg = hariyaNegjBuleg;
         if (startDate) inputEkhlekhOgnoo = new Date(startDate);
         if (endDate) inputDuusakhOgnoo = new Date(endDate);
@@ -366,10 +375,12 @@ router.get(
 
       let hariyaNegjIdnuud = [];
       if (buleg && buleg !== "Улс") {
-        const hariyaNegjuud = await HariyaNegjModal.find({
-          buleg: buleg,
-        });
-        hariyaNegjIdnuud = hariyaNegjuud?.map((it) => it._id?.toString());
+        if (!duureg) {
+          const hariyaNegjuud = await HariyaNegjModal.find({
+            buleg: buleg,
+          });
+          hariyaNegjIdnuud = hariyaNegjuud?.map((it) => it._id?.toString());
+        }
       }
 
       var idnuud = [];
