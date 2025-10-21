@@ -985,7 +985,7 @@ const getTseguudCountByDuureg = async (params = {}) => {
 };
 
 async function getAttendanceStatistics(input) {
-  const { startDate, endDate, duureg, buleg } = input;
+  const { startDate, endDate, buleg, negj } = input;
 
   // Огнооны интервал - datetime string-ийг шууд Date object болгоно
   const start = new Date(startDate);
@@ -999,9 +999,9 @@ async function getAttendanceStatistics(input) {
     // Харьяа нэгжийн ID-г олох
     const hariyaNegjQuery = { buleg };
 
-    if (duureg && duureg !== "Бүх дүүрэг" && duureg !== "Бүх аймаг") {
+    if (negj && negj !== "Бүх дүүрэг" && negj !== "Бүх аймаг") {
       // Тодорхой дүүрэг/аймаг сонгосон бол
-      hariyaNegjQuery._id = duureg;
+      hariyaNegjQuery._id = negj;
     }
 
     const hariyaNegjList = await HariyaNegjModel.find(hariyaNegjQuery).select(
