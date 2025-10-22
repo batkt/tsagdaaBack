@@ -18,6 +18,7 @@ const medegdelRoute = require("./routes/medegdelRoute");
 const zurchliinTurulRoute = require("./routes/zurchliinTurulRoute");
 const zurchilRoute = require("./routes/zurchilRoute");
 const habeaRoute = require("./routes/khabeaRoute");
+const tuluvluguuRoute = require("./routes/tuluvluguuRoute");
 
 const dashboardRoute = require("./routes/dashboardRoute");
 const aldaaBarigch = require("./middleware/aldaaBarigch");
@@ -86,6 +87,7 @@ app.use(zurchliinTurulRoute);
 app.use(zurchilRoute);
 app.use(dashboardRoute);
 app.use(habeaRoute);
+app.use(tuluvluguuRoute);
 zuragPack(app);
 
 app.use(aldaaBarigch);
